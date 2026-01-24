@@ -1,0 +1,36 @@
+
+
+OpenDocument="stm32f4xx_it.c", FilePath="D:/zhandui/cqdm/sentry_right/Src/stm32f4xx_it.c", Line=105
+OpenDocument="robot_cmd.c", FilePath="D:/zhandui/cqdm/sentry_right/application/cmd/robot_cmd.c", Line=49
+OpenDocument="shoot.c", FilePath="D:/zhandui/cqdm/sentry_right/application/shoot/shoot.c", Line=30
+OpenToolbar="Debug", Floating=0, x=0, y=0
+OpenWindow="Source Files", DockArea=LEFT, x=0, y=0, w=549, h=362, FilterBarShown=0, TotalValueBarShown=0, ToolBarShown=0
+OpenWindow="Disassembly", DockArea=RIGHT, x=0, y=0, w=591, h=215, FilterBarShown=0, TotalValueBarShown=0, ToolBarShown=0
+OpenWindow="Memory 1", DockArea=BOTTOM, x=3, y=0, w=201, h=287, FilterBarShown=0, TotalValueBarShown=0, ToolBarShown=0, EditorAddress=0x0
+OpenWindow="Watched Data 1", DockArea=LEFT, x=0, y=1, w=549, h=296, FilterBarShown=0, TotalValueBarShown=0, ToolBarShown=0
+OpenWindow="Terminal", DockArea=BOTTOM, x=0, y=0, w=960, h=287, FilterBarShown=0, TotalValueBarShown=0, ToolBarShown=0
+OpenWindow="Data Sampling", DockArea=BOTTOM, x=2, y=0, w=554, h=287, FilterBarShown=0, TotalValueBarShown=0, ToolBarShown=0, VisibleTab=0, UniformSampleSpacing=0
+OpenWindow="Timeline", DockArea=RIGHT, x=0, y=1, w=591, h=443, FilterBarShown=0, TotalValueBarShown=0, ToolBarShown=1, DataPaneShown=1, PowerPaneShown=0, CodePaneShown=0, PinCursor="Cursor Movable", TimePerDiv="2 s / Div", TimeStampFormat="Time", DataGraphDrawAsPoints=0, DataGraphLegendShown=1, DataGraphUniformSampleSpacing=0, DataGraphLegendPosition="0;0", DataGraphShowNamesAtCursor=0, PowerGraphDrawAsPoints=0, PowerGraphLegendShown=0, PowerGraphAvgFilterTime=Off, PowerGraphAvgFilterLen=Off, PowerGraphUniformSampleSpacing=0, PowerGraphLegendPosition="421;0", CodeGraphLegendShown=0, CodeGraphLegendPosition="427;0"
+OpenWindow="Console", DockArea=BOTTOM, x=1, y=0, w=202, h=287, FilterBarShown=0, TotalValueBarShown=0, ToolBarShown=0
+SmartViewPlugin="", Page="", Toolbar="Hidden", Window="SmartView 1"
+TableHeader="Source Files", SortCol="File", SortOrder="ASCENDING", VisibleCols=["File";"Status";"Size";"#Insts";"Path"], ColWidths=[263;100;100;100;662]
+TableHeader="Data Sampling Table", SortCol="None", SortOrder="ASCENDING", VisibleCols=["Index";"Time"], ColWidths=[100;100]
+TableHeader="Data Sampling Setup", SortCol="Type", SortOrder="DESCENDING", VisibleCols=["Expression";"Type";"Value";"Min";"Max";"Average";"# Changes";"Min. Change";"Max. Change"], ColWidths=[380;100;100;100;100;100;100;100;100]
+TableHeader="Power Sampling", SortCol="None", SortOrder="ASCENDING", VisibleCols=["Index";"Time";"Ch 0"], ColWidths=[100;100;100]
+TableHeader="Watched Data 1", SortCol="Expression", SortOrder="ASCENDING", VisibleCols=["Expression";"Value";"Location";"Refresh"], ColWidths=[212;105;100;115]
+TableHeader="RegisterSelectionDialog", SortCol="None", SortOrder="ASCENDING", VisibleCols=[], ColWidths=[]
+TableHeader="TargetExceptionDialog", SortCol="Name", SortOrder="ASCENDING", VisibleCols=["Name";"Value";"Address";"Description"], ColWidths=[27;27;27;678]
+WatchedExpression="loader", RefreshRate=2, Window=Watched Data 1
+WatchedExpression="yaw_motor", RefreshRate=2, Window=Watched Data 1
+WatchedExpression="pitch_motor", RefreshRate=2, Window=Watched Data 1
+WatchedExpression="rc_data", RefreshRate=2, Window=Watched Data 1
+WatchedExpression="gimba_IMU_data", RefreshRate=2, Window=Watched Data 1
+WatchedExpression="shoot_cmd_send", RefreshRate=2, Window=Watched Data 1
+WatchedExpression="referee_recv_info", RefreshRate=2, Window=Watched Data 1
+WatchedExpression="gimbal_feedback_data", RefreshRate=2, Window=Watched Data 1
+WatchedExpression="ui_data", RefreshRate=2, Window=Watched Data 1
+WatchedExpression="gimbal.c::gimbal_cmd_recv", RefreshRate=2, Window=Watched Data 1
+WatchedExpression="shoot_cmd_recv", RefreshRate=2, Window=Watched Data 1
+WatchedExpression="referee_VT_data", RefreshRate=2, Window=Watched Data 1
+WatchedExpression="referee_data", RefreshRate=2, Window=Watched Data 1
+WatchedExpression="rc_data", RefreshRate=2, Window=Watched Data 1
