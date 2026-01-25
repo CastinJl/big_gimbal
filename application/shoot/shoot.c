@@ -619,7 +619,7 @@ void ShootTask()
    //  {
    //      DJIMotorStop(loader);
    //  }
-        //stalled_detect();
+        stalled_detect();
    //  Trigger_Update();
     // // // 热量控制
     // if(First_flag==100){

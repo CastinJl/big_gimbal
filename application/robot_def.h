@@ -26,9 +26,9 @@
 
 /* 机器人重要参数定义,注意根据不同机器人进行修改,浮点数需要以.0或f结尾,无符号以u结尾 */
 // 云台参数
-#define YAW_CHASSIS_ALIGN_ECD 5200//2777 // 小 1443 大2053 // 云台和底盘对齐指向相同方向时的电机编码器值,若对云台有机械改动需要修改
+#define YAW_CHASSIS_ALIGN_RAD 0.969//2777 // 小 1443 大2053 // 云台和底盘对齐指向相同方向时的电机编码器值,若对云台有机械改动需要修改
 #define YAW_ECD_GREATER_THAN_4096 0 // ALIGN_ECD值是否大于4096,是为1,否为0;用于计算云台偏转角度
-#define MAX_FF_SPEED_RAD 15
+#define MAX_FF_SPEED_RAD 20
 #define PITCH_HORIZON_ECD 3742    // 云台处于水平位置时编码器值,若对云台有机械改动需要修改
 #define PITCH_MAX_ANGLE 35           // 云台竖直方向最大角度 (注意反馈如果是陀螺仪，则填写陀螺仪的角度)
 #define PITCH_MIN_ANGLE -21          // 云台竖直方向最小角度 (注意反馈如果是陀螺仪，则填写陀螺仪的角度)
@@ -203,24 +203,35 @@ typedef struct
 // cmd发布的底盘控制数据,由chassis订阅
 typedef struct
 {
-    // 控制部分
-    float vx;           // 前进方向速度
+    float vx;           // 前进方向速度,   范围-660x100 -- 660x100
     float vy;           // 横移方向速度
     float wz;           // 旋转速度
     float offset_angle; // 底盘和归中位置的夹角
-    // chassis_mode_e chassis_mode;
-    // int chassis_speed_buff;
 
-    uint16_t chassis_power_limit;
-    uint8_t cap_open;
+
+    uint16_t chassis_power_limit;   //底盘功率上限
+
+    // uint16_t motor_speed_f;
+    //float bullet_speed;
+    // float loader_now_angle;
+    // UI部分
+    //  ...
+    // 控制部分
+
+
+    // UI部分
+    //  ...
+
+    // uint16_t chassis_power_buffer;  //底盘缓冲能量
+    chassis_mode_e chassis_mode;
+
     //     float Tp;
     //     float set_k;
     //    float set_d;
     // float set_rotate_speed;
     // float set_rls_lambda;
     //     float set_delta;
-    chassis_mode_e chassis_mode;
-    int chassis_speed_buff;
+
     // uint16_t buffer_energy;
     uint16_t buffer_supercap;
     // uint8_t chassic_flag;
@@ -274,29 +285,17 @@ typedef struct
 #if defined(CHASSIS_BOARD) || defined(GIMBAL_BOARD) // 非单板的时候底盘还将imu数据回传(若有必要)
     // attitude_t chassis_imu_data;
 #endif
-    // float real_vx;
-    // float real_vy;
-    float real_wz;
-
-    // Bullet_Speed_e bullet_speed; // 弹速限制
-    // attitude_t chassis_imu_data;
-    Enemy_Color_e enemy_color;   // 0 for red, 1 for blue
-
-    uint8_t rest_heat;           // 剩余枪口热量
-    Bullet_Speed_e bullet_speed; // 弹速限制
-    //float chassis_est_p;
-    // float pm1;
-    // float pm;
-    // float check_param[6];
-    // float curr;
-    // float ome;
-
-    // int16_t cap_vol;
+    Bullet_Speed_e bullet_speed;
     uint8_t robot_level;
     uint16_t heat_limit;
     uint16_t heat_colo;
     uint8_t dead_state;
     uint16_t heat;
+    float real_wz;
+    uint16_t cap_vol;
+    uint8_t rest_heat;           // 剩余枪口热量
+    Enemy_Color_e enemy_color;   // 0 for blue, 1 for red
+    uint8_t load_reverse_flag;
 } Chassis_Upload_Data_s;
 
 

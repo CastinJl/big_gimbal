@@ -18,7 +18,7 @@ void DMMotorSetMode(DMMotor_Mode_e cmd, DMMotorInstance *motor)
 {
     memset(motor->motor_can_instance->tx_buff, 0xff, 7);  // 发送电机指令的时候前面7bytes都是0xff
     motor->motor_can_instance->tx_buff[7] = (uint8_t)cmd; // 最后一位是命令id
-    CANTransmit(motor->motor_can_instance, 5);
+    CANTransmit(motor->motor_can_instance, 3);
 }
 
 static void DMMotorDecode(CANInstance *motor_can)
@@ -241,7 +241,8 @@ void DMMotorControl(){
         motor->motor_can_instance->tx_buff[7] = (uint8_t)(motor_send_mailbox.torque_des);
 
 
-        CANTransmit(motor->motor_can_instance, 5);
+
+        CANTransmit(motor->motor_can_instance, 3); // 超时设为0
     }
 
 }

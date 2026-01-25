@@ -123,7 +123,7 @@ void RobotCMDInit() {
         .send_data_len = sizeof(Chassis_Ctrl_Cmd_s),
     };
 
-    //cmd_can_comm = CANCommInit(&comm_conf);
+    cmd_can_comm = CANCommInit(&comm_conf);
 #endif // GIMBAL_BOARD
     gimbal_cmd_send.pitch = 0;
 
@@ -203,17 +203,17 @@ static void CalcOffsetAngle() {
     // 别名angle提高可读性
     static float angle;
     //angle = gimbal_fetch_data.yaw_motor_single_round_angle; // 从云台获取的当前yaw电机单圈角度
-    angle = gimbal_fetch_data.yaw_motor_single_round_angle * 180 / PI; // 从云台获取的当前yaw电机单圈角度
+    angle = gimbal_fetch_data.yaw_motor_single_round_angle; // 从云台获取的当前yaw电机单圈角度
 
     // 计算偏移角度
-    //float offset = angle - YAW_ALIGN_ANGLE;
-    float offset = angle - (-80.2);
+    float offset = angle - YAW_CHASSIS_ALIGN_RAD;
+    //float offset = angle - (1.2474);
 
     // 将偏移角度归一化到 [-180, 180] 度之间
-    if (offset > 180.0f) {
-        offset -= 360.0f;
-    } else if (offset < -180.0f) {
-        offset += 360.0f;
+    if (offset > PI) {
+        offset -= 2*PI;
+    } else if (offset < -PI) {
+        offset += 2*PI;
     }
     // 赋值给输出
     chassis_cmd_send.offset_angle = offset;
@@ -454,7 +454,8 @@ static void RemoteControlSet() {
         // ...
         aim_select.suggest_fire = 0;
         chassis_cmd_send.suggest_fire = 0;
-        gimbal_cmd_send.yaw -= 0.0025f * (float) rc_data[TEMP].rc.rocker_l_;
+        //gimbal_cmd_send.yaw -= 0.0025f * (float) rc_data[TEMP].rc.rocker_l_;
+        gimbal_cmd_send.yaw -= 0.001f * (float) rc_data[TEMP].rc.rocker_l_;
         gimbal_cmd_send.pitch += 0.001f * (float) rc_data[TEMP].rc.rocker_l1;
 
         if (gimbal_cmd_send.pitch >= PITCH_MAX_ANGLE) gimbal_cmd_send.pitch = PITCH_MAX_ANGLE;
@@ -1189,7 +1190,7 @@ void RobotCMDTask() {
     SubGetMessage(chassis_feed_sub, (void *) &chassis_fetch_data);
 #endif // ONE_BOARD
 #ifdef GIMBAL_BOARD
-    //chassis_fetch_data = *(Chassis_Upload_Data_s *)CANCommGet(cmd_can_comm);
+    chassis_fetch_data = *(Chassis_Upload_Data_s *)CANCommGet(cmd_can_comm);
 #endif // GIMBAL_BOARD
     SubGetMessage(shoot_feed_sub, &shoot_fetch_data);
     SubGetMessage(gimbal_feed_sub, &gimbal_fetch_data);
@@ -1285,8 +1286,8 @@ void RobotCMDTask() {
     PubPushMessage(chassis_cmd_pub, (void *) &chassis_cmd_send);
 #endif // ONE_BOARD
 #ifdef GIMBAL_BOARD
-    //CANCommSend(cmd_can_comm, (void *)&chassis_cmd_send);
-    // CANCommSend(shoot_can_comm,(void *)&shoot_cmd_send);
+    CANCommSend(cmd_can_comm, (void *)&chassis_cmd_send);
+     // CANCommSend(shoot_can_comm,(void *)&shoot_cmd_send);
 #endif // GIMBAL_BOARD
     PubPushMessage(shoot_cmd_pub, (void *) &shoot_cmd_send);
     PubPushMessage(gimbal_cmd_pub, (void *) &gimbal_cmd_send);

@@ -101,39 +101,78 @@ CANInstance *CANRegister(CAN_Init_Config_s *config)
     return instance; // 返回can实例指针
 }
 
+static void CAN_Force_Reset(CAN_HandleTypeDef *hcan)
+{
+    // 1. 停止 CAN
+    HAL_CAN_Stop(hcan);
+
+    // 2. 清空所有发送邮箱（这一步很重要，把卡住的垃圾数据清掉）
+    HAL_CAN_AbortTxRequest(hcan, CAN_TX_MAILBOX0 | CAN_TX_MAILBOX1 | CAN_TX_MAILBOX2);
+
+    // 3. 重新启动 CAN
+    if (HAL_CAN_Start(hcan) != HAL_OK)
+    {
+        LOGERROR("[bsp_can] CAN Reset Failed!");
+        return;
+    }
+
+    // 4. 【至关重要】重新开启接收中断！否则重启后就收不到电机反馈了
+    HAL_CAN_ActivateNotification(hcan, CAN_IT_RX_FIFO0_MSG_PENDING);
+    HAL_CAN_ActivateNotification(hcan, CAN_IT_RX_FIFO1_MSG_PENDING);
+
+    LOGWARNING("[bsp_can] CAN Hardware Reset Performed!");
+}
+
 /* @todo 目前似乎封装过度,应该添加一个指向tx_buff的指针,tx_buff不应该由CAN instance保存 */
 /* 如果让CANinstance保存txbuff,会增加一次复制的开销 */
 uint8_t CANTransmit(CANInstance *_instance, float timeout)
 {
     static uint32_t busy_count;
-    static volatile float wait_time __attribute__((unused)); // for cancel warning
-    float dwt_start = DWT_GetTimeline_ms();
-    while (HAL_CAN_GetTxMailboxesFreeLevel(_instance->can_handle) == 0) // 等待邮箱空闲
-    {
-        if (DWT_GetTimeline_ms() - dwt_start > timeout) // 超时
-        {
-            uint32_t error_code = HAL_CAN_GetError(_instance->can_handle);
+    // 增加一个静态变量记录上次重启时间，防止高频重启卡死CPU
+    static float last_reset_time = 0;
 
-            if (error_code & HAL_CAN_ERROR_BOF) {
-                LOGERROR("[bsp_can] CRITICAL: CAN Bus-Off detected! tx_id: %d", _instance->tx_id);
-                // 此时硬件已经断开连接，必须重启 CAN 或者等待硬件自动恢复(如果开了ABOM)
-            } else if (error_code & HAL_CAN_ERROR_EPV) {
-                LOGWARNING("[bsp_can] CAN Error Passive. Lots of errors on bus.");
-            } else {
-                uint16_t can_bus = _instance->can_handle == &hcan1 ? 1 : 2;
-                LOGWARNING("[bsp_can] CAN Mailbox full but Bus is active. Just congestion.ID: %d, CAN Handle [%d], rx_id: %d", _instance->tx_id, can_bus, _instance->rx_id);
-            }            //邮箱满，可能为can通信问题，先清空邮箱
-            HAL_CAN_AbortTxRequest(_instance->can_handle, CAN_TX_MAILBOX0 | CAN_TX_MAILBOX1 | CAN_TX_MAILBOX2);
+    float dwt_start = DWT_GetTimeline_ms();
+
+    // 等待邮箱空闲
+    while (HAL_CAN_GetTxMailboxesFreeLevel(_instance->can_handle) == 0)
+    {
+        // 如果超时了
+        if (DWT_GetTimeline_ms() - dwt_start > timeout)
+        {
             busy_count++;
-            return 0;
+
+            // ------------------ 新增机制开始 ------------------
+
+            // 1. 先尝试温和的 Abort (清空邮箱)
+            HAL_CAN_AbortTxRequest(_instance->can_handle, CAN_TX_MAILBOX0 | CAN_TX_MAILBOX1 | CAN_TX_MAILBOX2);
+            LOGERROR("[bsp_can] CAN Mailbox full.ID: %d, rx_id: %d", _instance->tx_id, _instance->rx_id);
+
+            // 2. 如果 Abort 之后还是很卡，或者已经严重堵塞，且距离上次重启超过了500ms
+            // (给硬件一点恢复时间，别一直重启)
+            if (DWT_GetTimeline_ms() - last_reset_time > 500)
+            {
+                // 获取 CAN 错误状态
+                uint32_t error_code = HAL_CAN_GetError(_instance->can_handle);
+
+                // 如果出现 Bus-Off (BOF) 或者 被动错误 (EPV) 或者单纯就是一直发不出去
+                // 这里的逻辑是：只要超时了，就认为总线不健康，尝试重启
+                // 你也可以只在 error_code != HAL_CAN_ERROR_NONE 时重启
+
+                LOGERROR("[bsp_can] CAN congestion detected. Resetting hardware...");
+                CAN_Force_Reset(_instance->can_handle);
+
+                last_reset_time = DWT_GetTimeline_ms(); // 更新重启时间
+            }
+            // ------------------ 新增机制结束 ------------------
+
+            return 0; // 发送失败
         }
     }
-    wait_time = DWT_GetTimeline_ms() - dwt_start;
-    // tx_mailbox会保存实际填入了这一帧消息的邮箱,但是知道是哪个邮箱发的似乎也没啥用
+
+    // 正常发送逻辑
     if (HAL_CAN_AddTxMessage(_instance->can_handle, &_instance->txconf, _instance->tx_buff, &_instance->tx_mailbox))
     {
-        LOGWARNING("[bsp_can] CAN bus BUS! cnt:%d", busy_count);
-        busy_count++;
+        // LOGWARNING("[bsp_can] CAN AddTx Fail!"); // 可以注释掉避免刷屏
         return 0;
     }
     return 1; // 发送成功
