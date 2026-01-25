@@ -120,9 +120,10 @@ uint8_t CANTransmit(CANInstance *_instance, float timeout)
             } else if (error_code & HAL_CAN_ERROR_EPV) {
                 LOGWARNING("[bsp_can] CAN Error Passive. Lots of errors on bus.");
             } else {
-                LOGWARNING("[bsp_can] CAN Mailbox full but Bus is active. Just congestion.ID: %d", _instance->tx_id);
+                uint16_t can_bus = _instance->can_handle == &hcan1 ? 1 : 2;
+                LOGWARNING("[bsp_can] CAN Mailbox full but Bus is active. Just congestion.ID: %d, CAN Handle [%d], rx_id: %d", _instance->tx_id, can_bus, _instance->rx_id);
             }            //邮箱满，可能为can通信问题，先清空邮箱
-            //HAL_CAN_AbortTxRequest(_instance->can_handle, CAN_TX_MAILBOX0 | CAN_TX_MAILBOX1 | CAN_TX_MAILBOX0);
+            HAL_CAN_AbortTxRequest(_instance->can_handle, CAN_TX_MAILBOX0 | CAN_TX_MAILBOX1 | CAN_TX_MAILBOX2);
             busy_count++;
             return 0;
         }

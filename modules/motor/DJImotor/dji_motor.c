@@ -383,7 +383,7 @@ void DJIMotorControl() {
     // 遍历flag,检查是否要发送这一帧报文
     for (size_t i = 0; i < 10; ++i) {
         if (sender_enable_flag[i]) {
-            CANTransmit(&sender_assignment[i], 1);
+            CANTransmit(&sender_assignment[i], 5);
         }
     }
 }

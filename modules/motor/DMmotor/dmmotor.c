@@ -18,7 +18,7 @@ void DMMotorSetMode(DMMotor_Mode_e cmd, DMMotorInstance *motor)
 {
     memset(motor->motor_can_instance->tx_buff, 0xff, 7);  // 发送电机指令的时候前面7bytes都是0xff
     motor->motor_can_instance->tx_buff[7] = (uint8_t)cmd; // 最后一位是命令id
-    CANTransmit(motor->motor_can_instance, 3);
+    CANTransmit(motor->motor_can_instance, 5);
 }
 
 static void DMMotorDecode(CANInstance *motor_can)
@@ -158,6 +158,7 @@ void DMMotorControl(){
     //uint16_t tmp;
     DMMotor_Send_s motor_send_mailbox;
     float  pid_ref, set, pid_measure;
+    static uint16_t reload_cnt = 0; // 新增计数器
 
     for (size_t i = 0; i < idx; ++i)
     {
@@ -168,7 +169,13 @@ void DMMotorControl(){
 
         if (motor->lost_flag==1) {
             //说明触发看门狗了，不再发送消息，仅仅重新发送使能指令
-            DMMotorSetMode(DM_CMD_MOTOR_MODE, motor);
+            reload_cnt++;
+            // 假设控制频率是1kHz，这里设置为每500ms(500次)尝试重启一次
+            // 避免高频占用CAN邮箱
+            if(reload_cnt > 500) {
+                DMMotorSetMode(DM_CMD_MOTOR_MODE, motor);
+                reload_cnt = 0;
+            }
             continue;
         }
         pid_ref = motor->motor_controller.pid_ref;//保存设定值
@@ -234,7 +241,7 @@ void DMMotorControl(){
         motor->motor_can_instance->tx_buff[7] = (uint8_t)(motor_send_mailbox.torque_des);
 
 
-        CANTransmit(motor->motor_can_instance, 3);
+        CANTransmit(motor->motor_can_instance, 5);
     }
 
 }

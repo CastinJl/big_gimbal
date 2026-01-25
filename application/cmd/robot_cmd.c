@@ -123,7 +123,7 @@ void RobotCMDInit() {
         .send_data_len = sizeof(Chassis_Ctrl_Cmd_s),
     };
 
-    cmd_can_comm = CANCommInit(&comm_conf);
+    //cmd_can_comm = CANCommInit(&comm_conf);
 #endif // GIMBAL_BOARD
     gimbal_cmd_send.pitch = 0;
 
@@ -1189,7 +1189,7 @@ void RobotCMDTask() {
     SubGetMessage(chassis_feed_sub, (void *) &chassis_fetch_data);
 #endif // ONE_BOARD
 #ifdef GIMBAL_BOARD
-    chassis_fetch_data = *(Chassis_Upload_Data_s *)CANCommGet(cmd_can_comm);
+    //chassis_fetch_data = *(Chassis_Upload_Data_s *)CANCommGet(cmd_can_comm);
 #endif // GIMBAL_BOARD
     SubGetMessage(shoot_feed_sub, &shoot_fetch_data);
     SubGetMessage(gimbal_feed_sub, &gimbal_fetch_data);
@@ -1285,7 +1285,7 @@ void RobotCMDTask() {
     PubPushMessage(chassis_cmd_pub, (void *) &chassis_cmd_send);
 #endif // ONE_BOARD
 #ifdef GIMBAL_BOARD
-    CANCommSend(cmd_can_comm, (void *)&chassis_cmd_send);
+    //CANCommSend(cmd_can_comm, (void *)&chassis_cmd_send);
     // CANCommSend(shoot_can_comm,(void *)&shoot_cmd_send);
 #endif // GIMBAL_BOARD
     PubPushMessage(shoot_cmd_pub, (void *) &shoot_cmd_send);

@@ -129,7 +129,7 @@ void GimbalInit() {
     Motor_Init_Config_s yaw_config = {
             .can_init_config = {
                     .can_handle = &hcan1,
-                    .tx_id = 5,
+                    .tx_id = 0x12,
                     .rx_id = 0x18
             },
             .controller_param_init_config = {
