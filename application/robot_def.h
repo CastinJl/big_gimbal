@@ -28,7 +28,7 @@
 // 云台参数
 #define YAW_CHASSIS_ALIGN_RAD 0.969//2777 // 小 1443 大2053 // 云台和底盘对齐指向相同方向时的电机编码器值,若对云台有机械改动需要修改
 #define YAW_ECD_GREATER_THAN_4096 0 // ALIGN_ECD值是否大于4096,是为1,否为0;用于计算云台偏转角度
-#define MAX_FF_SPEED_RAD 20
+#define MAX_FF_SPEED_RAD 25
 #define PITCH_HORIZON_ECD 3742    // 云台处于水平位置时编码器值,若对云台有机械改动需要修改
 #define PITCH_MAX_ANGLE 35           // 云台竖直方向最大角度 (注意反馈如果是陀螺仪，则填写陀螺仪的角度)
 #define PITCH_MIN_ANGLE -21          // 云台竖直方向最小角度 (注意反馈如果是陀螺仪，则填写陀螺仪的角度)
@@ -38,7 +38,7 @@
 
 // 发射参数
 #define ONE_BULLET_DELTA_ANGLE 40    // 发射一发弹丸拨盘转动的距离,由机械设计图纸给出
-#define REDUCTION_RATIO_LOADER 27.142857f // 拨盘电机的减速比,英雄需要修改为3508的19.0f 2006-36.0f
+#define REDUCTION_RATIO_LOADER 27.142857f //  = 拨盘电机的减速比 * 拨盘齿数 / 电机轴齿数，其中电机减速比：3508-19.0f 2006-36.0f
 #define HEAT_PER_SHOT 10       // 每发子弹热量增量（根据实际弹药参数调整）
 #define COOLING_RATE 20        // 每秒冷却热量（单位：热量单位/秒）
 #define ONE_BULLET_DELTA_ANGLES (360.0f / 9.0f) // 每发弹丸对应角度（8发/圈）
@@ -203,44 +203,19 @@ typedef struct
 // cmd发布的底盘控制数据,由chassis订阅
 typedef struct
 {
-    float vx;           // 前进方向速度,   范围-660x100 -- 660x100
+    // 控制部分
+    float vx;           // 前进方向速度
     float vy;           // 横移方向速度
     float wz;           // 旋转速度
     float offset_angle; // 底盘和归中位置的夹角
-
-
-    uint16_t chassis_power_limit;   //底盘功率上限
-
-    // uint16_t motor_speed_f;
-    //float bullet_speed;
-    // float loader_now_angle;
-    // UI部分
-    //  ...
-    // 控制部分
-
-
-    // UI部分
-    //  ...
-
-    // uint16_t chassis_power_buffer;  //底盘缓冲能量
     chassis_mode_e chassis_mode;
+    uint8_t cap_open;
 
-    //     float Tp;
-    //     float set_k;
-    //    float set_d;
-    // float set_rotate_speed;
-    // float set_rls_lambda;
-    //     float set_delta;
-
-    // uint16_t buffer_energy;
-    uint16_t buffer_supercap;
-    // uint8_t chassic_flag;
     // UI部分
-    //  ...
     friction_mode_e friction_mode;
-    heat_mode_e heat_mode;
-    uint8_t suggest_fire;
-    uint8_t ui_updata;
+    uint8_t auto_aim_mode;
+    uint8_t auto_aim_fire_suggestion;
+    loader_mode_e loader_mode;
 } Chassis_Ctrl_Cmd_s;
 
 // cmd发布的云台控制数据,由gimbal订阅
@@ -288,14 +263,10 @@ typedef struct
     Bullet_Speed_e bullet_speed;
     uint8_t robot_level;
     uint16_t heat_limit;
-    uint16_t heat_colo;
     uint8_t dead_state;
     uint16_t heat;
     float real_wz;
-    uint16_t cap_vol;
-    uint8_t rest_heat;           // 剩余枪口热量
     Enemy_Color_e enemy_color;   // 0 for blue, 1 for red
-    uint8_t load_reverse_flag;
 } Chassis_Upload_Data_s;
 
 

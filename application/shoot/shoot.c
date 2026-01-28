@@ -436,48 +436,48 @@ void ShootTask()
     // {
     //     shoot_speed = 25.0f;
     // }
-        // if(shoot_cmd_recv.aim_flag == 1)
-        // {}
-    //     if(shoot_cmd_recv.robot_level <= 5)
-    //     {
-    //         jc_speed = 40.0f;
-    //     }
-    //     else if(shoot_cmd_recv.robot_level > 5 && shoot_cmd_recv.robot_level <= 10)
-    //     {
-    //         jc_speed = 45.0f;
-    //     }
-    // }
-    // else
-    // {
-    //     if(shoot_cmd_recv.robot_level <= 1)
-    //     {
-    //         jc_speed = 20.0f;
-    //     }
-    //     else if(shoot_cmd_recv.robot_level > 1 && shoot_cmd_recv.robot_level <= 10)
-    //     {
-    //         jc_speed = 25.0f;
-    //     }
-    // }
-    // if(shoot_cmd_recv.heat_mode == HEAT_OPEN)
-    // {
-    //     float tep_delta = (float)shoot_cmd_recv.heat_limit - shoot_cmd_recv.heat;
-    //     if(tep_delta >= Heat_Limit_Slowdown_Threshold)
-    //     {
-    //         shoot_speed = jc_speed;
-    //     }
-    //     else if(tep_delta >= Heat_Limit_Ceasefire_Threshold && tep_delta < Heat_Limit_Slowdown_Threshold)
-    //     {
-    //         shoot_speed = (jc_speed * (Heat_Limit_Ceasefire_Threshold - tep_delta) + shoot_cmd_recv.heat_cool / 10.0f * (tep_delta - Heat_Limit_Slowdown_Threshold)) / (Heat_Limit_Ceasefire_Threshold - Heat_Limit_Slowdown_Threshold);
-    //     }
-    //     else if(tep_delta < Heat_Limit_Ceasefire_Threshold)
-    //     {
-    //         shoot_speed = 0.0f;
-    //     }
-    // }
-    // else
-    // {
-    //     shoot_speed = jc_speed;
-    // }
+        if(shoot_cmd_recv.aim_flag == 1)
+        {
+        if(shoot_cmd_recv.robot_level <= 5)
+        {
+            jc_speed = 40.0f;
+        }
+        else if(shoot_cmd_recv.robot_level > 5 && shoot_cmd_recv.robot_level <= 10)
+        {
+            jc_speed = 45.0f;
+        }
+    }
+    else
+    {
+        if(shoot_cmd_recv.robot_level <= 1)
+        {
+            jc_speed = 20.0f;
+        }
+        else if(shoot_cmd_recv.robot_level > 1 && shoot_cmd_recv.robot_level <= 10)
+        {
+            jc_speed = 25.0f;
+        }
+    }
+    if(shoot_cmd_recv.heat_mode == HEAT_OPEN)
+    {
+        float tep_delta = (float)shoot_cmd_recv.heat_limit - shoot_cmd_recv.heat;
+        if(tep_delta >= Heat_Limit_Slowdown_Threshold)
+        {
+            shoot_speed = jc_speed;
+        }
+        else if(tep_delta >= Heat_Limit_Ceasefire_Threshold && tep_delta < Heat_Limit_Slowdown_Threshold)
+        {
+            shoot_speed = (jc_speed * (Heat_Limit_Ceasefire_Threshold - tep_delta) + shoot_cmd_recv.heat_cool / 10.0f * (tep_delta - Heat_Limit_Slowdown_Threshold)) / (Heat_Limit_Ceasefire_Threshold - Heat_Limit_Slowdown_Threshold);
+        }
+        else if(tep_delta < Heat_Limit_Ceasefire_Threshold)
+        {
+            shoot_speed = 0.0f;
+        }
+    }
+    else
+    {
+        shoot_speed = jc_speed;
+    }
 
 
     // 如果上一次触发单发或3发指令的时间加上不应期仍然大于当前时间(尚未休眠完毕),直接返回即可

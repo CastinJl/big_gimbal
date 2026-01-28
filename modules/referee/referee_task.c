@@ -133,7 +133,7 @@ void MyUIInit()
 //    UIGraphRefresh(&referee_recv_info->referee_id, 1, UI_Energy[0]);
 
     // 底盘功率显示,动态
-    UIFloatDraw(&UI_Energy[1], "sd6", UI_Graph_ADD, 8, UI_Color_Green, 18, 2, 2, 850, 230, Interactive_data->Chassis_Power_Data.chassis_power_mx * 1000);
+    //UIFloatDraw(&UI_Energy[1], "sd6", UI_Graph_ADD, 8, UI_Color_Green, 18, 2, 2, 850, 230, Interactive_data->Chassis_Power_Data.chassis_power_mx * 1000);
     UIGraphRefresh(&referee_recv_info->referee_id, 1, UI_Energy[1]);
 
     // 电容电压
@@ -214,13 +214,13 @@ static void MyUIRefresh(referee_info_t *referee_recv_info, Referee_Interactive_i
         UICharRefresh(&referee_recv_info->referee_id, UI_State_dyn[3]);
         _Interactive_data->Referee_Interactive_Flag.friction_flag = 0;
     }
-    // lid
-    if (_Interactive_data->Referee_Interactive_Flag.lid_flag == 1)
-    {
-        UICharDraw(&UI_State_dyn[4], "sd4", UI_Graph_Change, 8, UI_Color_Pink, 20, 2, 170, 650, _Interactive_data->lid_mode == LID_OPEN ? "on " : "off");
-        UICharRefresh(&referee_recv_info->referee_id, UI_State_dyn[4]);
-        _Interactive_data->Referee_Interactive_Flag.lid_flag = 0;
-    }
+    // // lid
+    // if (_Interactive_data->Referee_Interactive_Flag.lid_flag == 1)
+    // {
+    //     UICharDraw(&UI_State_dyn[4], "sd4", UI_Graph_Change, 8, UI_Color_Pink, 20, 2, 170, 650, _Interactive_data->lid_mode == LID_OPEN ? "on " : "off");
+    //     UICharRefresh(&referee_recv_info->referee_id, UI_State_dyn[4]);
+    //     _Interactive_data->Referee_Interactive_Flag.lid_flag = 0;
+    // }
     // heat
     if (_Interactive_data->Referee_Interactive_Flag.heat_flag == 1)
     {
@@ -252,23 +252,23 @@ static void MyUIRefresh(referee_info_t *referee_recv_info, Referee_Interactive_i
 //        UICharRefresh(&referee_recv_info->referee_id, UI_State_dyn[5]);
 //        _Interactive_data->Referee_Interactive_Flag.load_flag = 0;
 //    }
-    // power
-    if (_Interactive_data->Referee_Interactive_Flag.Power_flag == 1)
-    {
-        UIFloatDraw(&UI_Energy[1], "sd6", UI_Graph_Change, 8, UI_Color_Green, 18, 2, 2, 850, 230, _Interactive_data->Chassis_Power_Data.chassis_power_mx * 1000);
-        UIGraphRefresh(&referee_recv_info->referee_id, 2, UI_Energy[1]);
-        _Interactive_data->Referee_Interactive_Flag.Power_flag = 0;
-    }
+    // // power
+    // if (_Interactive_data->Referee_Interactive_Flag.Power_flag == 1)
+    // {
+    //     UIFloatDraw(&UI_Energy[1], "sd6", UI_Graph_Change, 8, UI_Color_Green, 18, 2, 2, 850, 230, _Interactive_data->Chassis_Power_Data.chassis_power_mx * 1000);
+    //     UIGraphRefresh(&referee_recv_info->referee_id, 2, UI_Energy[1]);
+    //     _Interactive_data->Referee_Interactive_Flag.Power_flag = 0;
+    // }
     // UIFloatDraw(&UI_Energy[2], "sd7", UI_Graph_Change, 8, UI_Color_Pink, 18, 2,2, 850, 280,Interactive_data->Cap_Data.cap_vol);
     UIGraphRefresh(&referee_recv_info->referee_id, 1,UI_Energy[2]);
 //    UILineDraw(&UI_Energy[3], "sd8", UI_Graph_Change, 8, UI_Color_Pink, 30, 720, 160, (uint32_t)(720 + (Interactive_data->Cap_Data.cap_vol-1200) * 0.416), 160);
 //    UIGraphRefresh(&referee_recv_info->referee_id, 1, &UI_Energy[3]);
     //绘制开火建议
-    if (_Interactive_data->Referee_Interactive_Flag.aim_flag == 1) {
-        UICircleDraw(&UI_shoot_yuan[0], "sy0", UI_Graph_Change, 7, _Interactive_data->aim_fire == 0 ? UI_Color_Yellow : UI_Color_Main, 2, 960, 540, 80);
-        UIGraphRefresh(&referee_recv_info->referee_id, 1, UI_shoot_yuan[0]);
-        _Interactive_data->Referee_Interactive_Flag.aim_flag = 0;
-    }
+    // if (_Interactive_data->Referee_Interactive_Flag.aim_flag == 1) {
+    //     UICircleDraw(&UI_shoot_yuan[0], "sy0", UI_Graph_Change, 7, _Interactive_data->aim_fire == 0 ? UI_Color_Yellow : UI_Color_Main, 2, 960, 540, 80);
+    //     UIGraphRefresh(&referee_recv_info->referee_id, 1, UI_shoot_yuan[0]);
+    //     _Interactive_data->Referee_Interactive_Flag.aim_flag = 0;
+    // }
 }
 
 /**
@@ -279,23 +279,17 @@ static void MyUIRefresh(referee_info_t *referee_recv_info, Referee_Interactive_i
  */
 static void UIChangeCheck(Referee_Interactive_info_t *_Interactive_data)
 {
-    // if (_Interactive_data->chassis_mode != _Interactive_data->chassis_last_mode)
-    // {
-    //     _Interactive_data->Referee_Interactive_Flag.chassis_flag = 1;
-    //     _Interactive_data->chassis_last_mode = _Interactive_data->chassis_mode;
-    // }
+    if (_Interactive_data->chassis_mode != _Interactive_data->chassis_last_mode)
+    {
+        _Interactive_data->Referee_Interactive_Flag.chassis_flag = 1;
+        _Interactive_data->chassis_last_mode = _Interactive_data->chassis_mode;
+    }
 
-//    if (_Interactive_data->gimbal_mode != _Interactive_data->gimbal_last_mode)
-//    {
-//        _Interactive_data->Referee_Interactive_Flag.gimbal_flag = 1;
-//        _Interactive_data->gimbal_last_mode = _Interactive_data->gimbal_mode;
-//    }
-
-//    if (_Interactive_data->shoot_mode != _Interactive_data->shoot_last_mode)
-//    {
-//        _Interactive_data->Referee_Interactive_Flag.shoot_flag = 1;
-//        _Interactive_data->shoot_last_mode = _Interactive_data->shoot_mode;
-//    }
+    if (_Interactive_data->auto_aim_fire_suggestion != _Interactive_data->auto_aim_fire_last_suggestion)
+    {
+        _Interactive_data->Referee_Interactive_Flag.shoot_flag = 1;
+        _Interactive_data->auto_aim_fire_last_suggestion = _Interactive_data->auto_aim_fire_suggestion;
+    }
 
     if (_Interactive_data->friction_mode != _Interactive_data->friction_last_mode)
     {
@@ -303,10 +297,10 @@ static void UIChangeCheck(Referee_Interactive_info_t *_Interactive_data)
         _Interactive_data->friction_last_mode = _Interactive_data->friction_mode;
     }
 
-    if (_Interactive_data->lid_mode != _Interactive_data->lid_last_mode)
+    if (_Interactive_data->auto_aim_mode != _Interactive_data->auto_aim_last_mode)
     {
-        _Interactive_data->Referee_Interactive_Flag.lid_flag = 1;
-        _Interactive_data->lid_last_mode = _Interactive_data->lid_mode;
+        _Interactive_data->Referee_Interactive_Flag.aim_flag = 1;
+        _Interactive_data->auto_aim_last_mode = _Interactive_data->auto_aim_mode;
     }
 
     // if (_Interactive_data->heat_mode != _Interactive_data->heat_last_mode)
@@ -315,27 +309,27 @@ static void UIChangeCheck(Referee_Interactive_info_t *_Interactive_data)
     //     _Interactive_data->heat_last_mode = _Interactive_data->heat_mode;
     // }
 
-    if (_Interactive_data->Chassis_Power_Data.chassis_power_mx != _Interactive_data->Chassis_last_Power_Data.chassis_power_mx)
+    // if (_Interactive_data->Chassis_Power_Data.chassis_power_mx != _Interactive_data->Chassis_last_Power_Data.chassis_power_mx)
+    // {
+    //     _Interactive_data->Referee_Interactive_Flag.Power_flag = 1;
+    //     _Interactive_data->Chassis_last_Power_Data.chassis_power_mx = _Interactive_data->Chassis_Power_Data.chassis_power_mx;
+    // }
+
+    if (_Interactive_data->SuperCapEnergy != _Interactive_data->SuperCapLastEnergy)
     {
-        _Interactive_data->Referee_Interactive_Flag.Power_flag = 1;
-        _Interactive_data->Chassis_last_Power_Data.chassis_power_mx = _Interactive_data->Chassis_Power_Data.chassis_power_mx;
+        _Interactive_data->Referee_Interactive_Flag.cap_flag = 1;
+        _Interactive_data->SuperCapLastEnergy = _Interactive_data->SuperCapEnergy;
     }
 
-//    if (_Interactive_data->Cap_Data.cap_vol != _Interactive_data->Cap_last_Data.cap_vol)
-//    {
-//        _Interactive_data->Referee_Interactive_Flag.cap_flag = 1;
-//        _Interactive_data->Cap_last_Data.cap_vol = _Interactive_data->Cap_Data.cap_vol;
-//    }
-
-    if (_Interactive_data->aim_fire != _Interactive_data->aim_last_fire)
+    if (_Interactive_data->loader_mode != _Interactive_data->loader_last_mode)
     {
-        _Interactive_data->Referee_Interactive_Flag.aim_flag = 1;
-        _Interactive_data->aim_last_fire = _Interactive_data->aim_fire;
+        _Interactive_data->Referee_Interactive_Flag.load_flag = 1;
+        _Interactive_data->loader_last_mode = _Interactive_data->loader_mode;
     }
 
-//    if (_Interactive_data->loader_mode != _Interactive_data->loader_last_mode)
-//    {
-//        _Interactive_data->Referee_Interactive_Flag.load_flag = 1;
-//        _Interactive_data->loader_last_mode = _Interactive_data->loader_mode;
-//    }
+    if (_Interactive_data->armor_beat_id != _Interactive_data->armor_beat_id_last)
+    {
+        _Interactive_data->Referee_Interactive_Flag.beat_id_flag = 1;
+        _Interactive_data->armor_beat_id_last = _Interactive_data->armor_beat_id;
+    }
 }

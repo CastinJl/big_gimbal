@@ -161,6 +161,7 @@ typedef struct
     uint32_t cap_flag : 1;
     uint32_t load_flag : 1;
     uint32_t heat_flag : 1;
+    uint32_t beat_id_flag : 1;
 } Referee_Interactive_Flag_t;
 
 // 此结构体为图传链路传输的数据
@@ -184,25 +185,40 @@ typedef struct
 {
     Referee_Interactive_Flag_t Referee_Interactive_Flag;
     // 为UI绘制以及交互数据所用
-    gimbal_mode_e gimbal_mode;				 // 云台模式
-    shoot_mode_e shoot_mode;				 // 发射开关设置
-    friction_mode_e friction_mode;			 // 摩擦轮关闭
-    lid_mode_e lid_mode;					 // 弹舱盖打开
-    Chassis_Power_Data_s Chassis_Power_Data; // 功率控制
-    uint8_t aim_fire;                        // 开火建议
-    loader_mode_e loader_mode;               // 发射模式
-
+    // gimbal_mode_e gimbal_mode;				 // 云台模式
+    // shoot_mode_e shoot_mode;				 // 发射开关设置
+    // friction_mode_e friction_mode;			 // 摩擦轮关闭
+    // //lid_mode_e lid_mode;					 // 弹舱盖打开
+    // Chassis_Power_Data_s Chassis_Power_Data; // 功率控制
+    // uint8_t aim_fire;                        // 开火建议
+    // loader_mode_e loader_mode;               // 发射模式
+    chassis_mode_e chassis_mode;
+    friction_mode_e friction_mode;
+    uint8_t auto_aim_mode;
+    uint8_t auto_aim_fire_suggestion;
+    loader_mode_e loader_mode;
+    uint8_t SuperCapEnergy;//超级电容可用能量：0-100%
+    uint16_t bullet_number;
+    uint8_t armor_beat_id;
     float relative_angle;  //云台相对角度
 
     // 上一次的模式，用于flag判断
-    gimbal_mode_e gimbal_last_mode;
-    shoot_mode_e shoot_last_mode;
+    // gimbal_mode_e gimbal_last_mode;
+    // shoot_mode_e shoot_last_mode;
+    // friction_mode_e friction_last_mode;
+    // lid_mode_e lid_last_mode;
+    // Chassis_Power_Data_s Chassis_last_Power_Data;
+    // uint8_t aim_last_fire;
+    // loader_mode_e loader_last_mode;
+    // 上一次的模式，用于flag判断
+    chassis_mode_e chassis_last_mode;
     friction_mode_e friction_last_mode;
-    lid_mode_e lid_last_mode;
-    Chassis_Power_Data_s Chassis_last_Power_Data;
-    uint8_t aim_last_fire;
+    uint8_t auto_aim_last_mode;
+    uint8_t auto_aim_fire_last_suggestion;
     loader_mode_e loader_last_mode;
-
+    uint8_t SuperCapLastEnergy;//超级电容可用能量：0-100%
+    uint16_t bullet_number_last;
+    uint8_t armor_beat_id_last;
 } Referee_Interactive_info_t;
 
 #pragma pack()

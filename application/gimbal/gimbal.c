@@ -27,7 +27,8 @@ static float theta;
 uint32_t motor_model_count;
 
 static float last_yaw_ref = 0;
-static float dt = 0.001f; // 任务运行周期为5ms，也可用 DWT 获取真实 dt
+static float dt = 0.005f; // 任务运行周期为5ms，也可用 DWT 获取真实 dt
+float vision_kv = 3.0f;
 
 static void LimitPitchAngleAuto() {
     /** 注意电机角度与陀螺仪角度方向是否相同
@@ -146,9 +147,9 @@ void GimbalInit() {
                     .speed_PID = {
                             .Kp = 10,//-400//1410,  //4000
                             .Ki = 0,//33.0f, //100
-                            .Kd = 0.005f, //0
+                            .Kd = 0.0f, //0
                             .Improve = PID_Integral_Limit | PID_Derivative_On_Measurement | PID_OutputFilter,                            .IntegralLimit = 10000,
-                            .MaxOut = 30,
+                            .MaxOut = 15,
                            // .Output_LPF_RC = 0.003f
                     },
                     .other_angle_feedback_ptr = &gimba_IMU_data->YawTotalAngle,
@@ -306,8 +307,6 @@ void GimbalTask() {
             float yaw_target_speed = (gimbal_cmd_recv.yaw - last_yaw_ref) * PI / 180 / dt;
             last_yaw_ref = gimbal_cmd_recv.yaw;
             float chassis_comp_speed = -gimbal_cmd_recv.real_wz;
-            // 视觉预测前馈系数，默认 1.0，如果响应不够可适当加大
-            float vision_kv = 1.3f;
             //速度前馈限幅
             if (yaw_target_speed > MAX_FF_SPEED_RAD) {
                 yaw_target_speed = MAX_FF_SPEED_RAD;
