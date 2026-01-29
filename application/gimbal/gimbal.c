@@ -29,73 +29,44 @@ static float theta;
 uint32_t motor_model_count;
 
 static float last_yaw_ref = 0;
-static float dt = 0.001f; // 任务运行周期为5ms，也可用 DWT 获取真实 dt
-float vision_kv = 1.0f;
+static float dt = 0.001f; // 任务运行周期1ms，也可用 DWT 获取真实 dt
+static float vision_kv = 1.0f;
 
-static void LimitPitchAngleAuto() {
-    /** 注意电机角度与陀螺仪角度方向是否相同
-     * 目前 add > 0, 向下转动
-     * 电机角度值减小
-     * 陀螺仪角度值增大
-     **/
-    float add;
-    float angle_set;
+#include <math.h> // 必须包含 math.h 以使用 sinf 和 PI
 
-    add = gimbal_cmd_recv.pitch - gimba_IMU_data->Pitch;
+// --- 系统辨识配置宏 ---
+//#define SYS_ID_MODE_ON  1       // 1: 开启辨识模式, 0: 关闭(正常运行)
+#define SYS_ID_AMP      50.0f   // 激励振幅 (单位: dps 或 rad/s，根据你的底层单位决定，这里假设是 rpm 或 dps，请根据电机响应调整，不要太大)
+#define SYS_ID_MIN_FREQ 1.0f    // 起始频率 1Hz
+#define SYS_ID_MAX_FREQ 30.0f   // 终止频率 20Hz (注意：教程说500Hz，但实际云台机械带宽通常只有10-30Hz，扫到500Hz极易损坏电机或结构，建议先测到20-50Hz)
+#define SYS_ID_DURATION 10.0f   // 扫频持续时间 10秒
 
-    if(pitch_motor->measure.angle_single_round - add > PITCH_MAX_RELATIVE_ANGLE){
-        if(add < 0.0f ){
-            add = PITCH_MAX_ANGLE - pitch_motor->measure.angle_single_round;
-        }
-    }else if(pitch_motor->measure.angle_single_round - add < PITCH_MIN_RELATIVE_ANGLE){
-        if(add > 0.0f){
-            add = PITCH_MIN_RELATIVE_ANGLE - pitch_motor->measure.angle_single_round;
-        }
-    }
-    angle_set = gimba_IMU_data->Pitch;
-    DMMotorSetRef(pitch_motor, angle_set+add);
-}
-
-const double TARGET_ANGLE_HIGH = 30.0;  // 例如: +20 度
-const double TARGET_ANGLE_LOW  = -15.0; // 例如: -15 度
-
-// 2. 移位寄存器的位数 (通常 9 到 15 之间就足够了)
-// 序列的长度是 (2^N)-1
-#define LFSR_BITS 10
-
-// 全局静态变量，用于保存移位寄存器的当前状态
-// static 确保了它在函数调用之间保持其值
-// 使用 volatile 可以在中断服务程序中安全使用
-static volatile uint16_t lfsr_register = 0x0001; // 初始种子(seed)，不能为 0
+// 系统辨识全局变量
+static float sys_id_tick = 0.0f;
 
 /**
- * @brief 生成并返回下一个 PRBS 目标角度设定值
- * @note  此函数应该在一个固定的时间间隔被周期性地调用 (例如每 40ms)。
- * @return 返回 TARGET_ANGLE_HIGH 或 TARGET_ANGLE_LOW
+ * @brief 生成线性扫频信号 (Chirp Signal)
+ * @param dt 控制周期 (秒)
+ * @return 当前时刻的激励值
  */
-double generate_angle_setpoint(void) {
-    // 根据 LFSR_BITS 选择反馈多项式 (taps)
-    // 这是 PRBS 信号“随机性”的来源
-    // 对于 10-bit, 多项式是 x^10 + x^3 + 1, 所以 taps 在第 9 和第 2 位 (0-indexed)
-    const uint16_t taps = (1 << (10-1)) | (1 << (3-1));
-
-    // 1. 获取输出位 (最低位)
-    uint16_t output_bit = lfsr_register & 1;
-
-    // 2. 寄存器右移一位
-    lfsr_register >>= 1;
-
-    // 3. 如果输出位是 1, 则与 taps 进行异或操作
-    if (output_bit) {
-        lfsr_register ^= taps;
+float Gimbal_SysID_Generate_Chirp(float dt) {
+    if (sys_id_tick > SYS_ID_DURATION) {
+        sys_id_tick = 0; // 循环扫频，或者设为 duration 停止
+        return 0.0f;
     }
 
-    // 4. 将二进制输出 {0, 1} 映射到高低两个目标角度
-    if (output_bit) {
-        return TARGET_ANGLE_HIGH;
-    } else {
-        return TARGET_ANGLE_LOW;
-    }
+    // 线性频率增长公式: f(t) = f_start + (f_end - f_start) * (t / duration)
+    float k = (SYS_ID_MAX_FREQ - SYS_ID_MIN_FREQ) / SYS_ID_DURATION;
+    float current_freq = SYS_ID_MIN_FREQ + k * sys_id_tick;
+
+    // 激励信号: A * sin(2 * PI * f(t) * t) -> 注意：变频信号相位是频率的积分
+    // Phase = 2 * PI * (f_start * t + 0.5 * k * t^2)
+    float phase = 2.0f * PI * (SYS_ID_MIN_FREQ * sys_id_tick + 0.5f * k * sys_id_tick * sys_id_tick);
+
+    float output = SYS_ID_AMP * arm_sin_f32(phase);
+
+    sys_id_tick += dt;
+    return output;
 }
 
 float Yaw_FF_Filter(float input) {
@@ -331,6 +302,19 @@ void GimbalTask() {
             // // DMMotorSetRef(pitch_motor,5);
             // roll_get = gimba_IMU_data->Roll;
             break;
+
+// #if SYS_ID_MODE_ON
+//             // --- 系统辨识模式 ---
+//             DMMotorEnable(yaw_motor);
+//             DMMotorEnable(pitch_motor);
+//             //生成激励信号
+//             sys_id_target_speed = Gimbal_SysID_Generate_Chirp(dt);
+//             DMMotorSetRef(yaw_motor, sys_id_target_speed);
+//             DMMotorSetRef(pitch_motor, 0); // Pitch 保持 0
+// #endif
+
+
+
             // 云台自由模式,使用编码器反馈,底盘和云台分离,仅云台旋转,一般用于调整云台姿态(英雄吊射等)/能量机关,
         case GIMBAL_FREE_MODE: // 后续删除,或加入云台追地盘的跟随模式(响应速度更快)
             DMMotorStop(yaw_motor);
