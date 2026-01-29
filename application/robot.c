@@ -49,18 +49,20 @@ void RobotInit()
 void RobotTask()
 {
 #if defined(ONE_BOARD) || defined(GIMBAL_BOARD)
-    // static uint8_t cnt = 0;
-    // cnt++;
-    RobotCMDTask();
-    // if (cnt == 5) {
-        GimbalTask();
-        ShootTask();
-        // cnt = 0;
-    // }
+    //RobotCMDTask();
+    GimbalTask();
+    ShootTask();
 #endif
 
 #if defined(ONE_BOARD) || defined(CHASSIS_BOARD)
     ChassisTask();
 #endif
 
+}
+
+void CMDTask()
+{
+#if defined(ONE_BOARD) || defined(GIMBAL_BOARD)
+    RobotCMDTask();
+#endif
 }

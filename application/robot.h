@@ -15,4 +15,6 @@ void RobotInit();
  */
 void RobotTask();
 
+void CMDTask();
+
 #endif

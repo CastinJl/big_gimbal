@@ -29,8 +29,8 @@ static float theta;
 uint32_t motor_model_count;
 
 static float last_yaw_ref = 0;
-static float dt = 0.005f; // 任务运行周期为5ms，也可用 DWT 获取真实 dt
-float vision_kv = 3.0f;
+static float dt = 0.001f; // 任务运行周期为5ms，也可用 DWT 获取真实 dt
+float vision_kv = 1.0f;
 
 static void LimitPitchAngleAuto() {
     /** 注意电机角度与陀螺仪角度方向是否相同
@@ -137,21 +137,22 @@ void GimbalInit() {
             },
             .controller_param_init_config = {
                     .angle_PID = {
-                            .Kp = 50,//30//0.8f,//1.2
+                            .Kp = 30,//50//30//0.8f,//1.2
                             .Ki = 0.0f,//0
                             .Kd = 0.0f,//0.04f,//0.05
                             .DeadBand = 0.0f,
                             .Improve = PID_Trapezoid_Intergral | PID_Integral_Limit | PID_Derivative_On_Measurement,
                             .IntegralLimit = 100,
-                            .MaxOut = 20//500//300,
+                            .MaxOut = 25//500//300,
 
                     },
                     .speed_PID = {
-                            .Kp = 10,//-400//1410,  //4000
+                            .Kp = 10,//10//1410,  //4000
                             .Ki = 0,//33.0f, //100
                             .Kd = 0.0f, //0
-                            .Improve = PID_Integral_Limit | PID_Derivative_On_Measurement | PID_OutputFilter,                            .IntegralLimit = 10000,
-                            .MaxOut = 15,
+                            .Improve = PID_Integral_Limit | PID_Derivative_On_Measurement | PID_DerivativeFilter,                            .IntegralLimit = 10000,
+                            .MaxOut = 80,
+                            .Derivative_LPF_RC = 0.0f
                            // .Output_LPF_RC = 0.003f
                     },
                     .other_angle_feedback_ptr = &gimba_IMU_data->YawTotalAngle,
@@ -173,9 +174,9 @@ void GimbalInit() {
                     .feedforward_flag = SPEED_FEEDFORWARD,
             },
             .motor_type = DM4310,
-            .DM_P_MAX = 3.14,
+            .DM_P_MAX = 3.14f,
             .DM_V_MAX = 30,
-            .DM_T_MAX = 10
+            .DM_T_MAX = 20
     };
     // PITCH
     Motor_Init_Config_s pitch_config = {
@@ -219,7 +220,7 @@ void GimbalInit() {
                     .feedforward_flag = CURRENT_FEEDFORWARD,
             },
             .motor_type = DM4310,
-            .DM_P_MAX = 12.5,
+            .DM_P_MAX = 12.5f,
             .DM_V_MAX = 30,
             .DM_T_MAX = 10
     };
@@ -358,7 +359,7 @@ void GimbalTask() {
     yaw_speed_feedforward  -= gimbal_cmd_recv.real_wz * 180 / PI;
     theta = gimba_IMU_data->Pitch/180*PI;
     if (theta>0.4) {//0.6
-        gravity_current = 0.1;
+        gravity_current = 0.1f;
         //gravity_current = 0;
     }
     else {

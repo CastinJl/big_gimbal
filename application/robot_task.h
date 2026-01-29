@@ -22,12 +22,14 @@ osThreadId robotTaskHandle;
 osThreadId motorTaskHandle;
 osThreadId daemonTaskHandle;
 osThreadId uiTaskHandle;
+osThreadId robocmdHandle;
 
 void StartINSTASK(void const *argument);
 void StartMOTORTASK(void const *argument);
 void StartDAEMONTASK(void const *argument);
 void StartROBOTTASK(void const *argument);
 void StartUITASK(void const *argument);
+void StartROBOCMDTASK(void const *argument);
 
 /**
  * @brief 初始化机器人任务,所有持续运行的任务都在这里初始化
@@ -51,7 +53,9 @@ void OSTaskInit()
     osThreadDef(uitask, StartUITASK, osPriorityNormal, 0, 512);
     uiTaskHandle = osThreadCreate(osThread(uitask), NULL);
 
-    HTMotorControlInit(); // 没有注册HT电机则不会执行
+    osThreadDef(robocmdtask, StartROBOCMDTASK, osPriorityNormal, 0, 512);
+    robocmdHandle = osThreadCreate(osThread(robocmdtask), NULL);
+    //HTMotorControlInit(); // 没有注册HT电机则不会执行
 }
 
 __attribute__((noreturn)) void StartINSTASK(void const *argument)
@@ -119,9 +123,9 @@ __attribute__((noreturn)) void StartROBOTTASK(void const *argument)
         robot_start = DWT_GetTimeline_ms();
         RobotTask();
         robot_dt = DWT_GetTimeline_ms() - robot_start;
-        if (robot_dt > 5)
+        if (robot_dt > 1)
             LOGERROR("[freeRTOS] ROBOT core Task is being DELAY! dt = [%f]", &robot_dt);
-        osDelay(5);
+        osDelay(1);
     }
 }
 
@@ -135,5 +139,22 @@ __attribute__((noreturn)) void StartUITASK(void const *argument)
         // 每给裁判系统发送一包数据会挂起一次,详见UITask函数的refereeSend()
         UITask();
         osDelay(1); // 即使没有任何UI需要刷新,也挂起一次,防止卡在UITask中无法切换
+    }
+}
+
+__attribute__((noreturn)) void StartROBOCMDTASK(void const *argument)
+{
+    static float cmd_start;
+    static float cmd_dt;
+    LOGINFO("[freeRTOS] CMD Task Start");
+    for (;;)
+    {
+        // 1kHz
+        cmd_start = DWT_GetTimeline_ms();
+        CMDTask();
+        cmd_dt = DWT_GetTimeline_ms() - cmd_start;
+        if (cmd_dt > 1)
+            LOGERROR("[freeRTOS] CMD Task is being DELAY! dt = [%f]", &cmd_dt);
+        osDelay(1);
     }
 }
