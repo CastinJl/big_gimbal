@@ -448,7 +448,7 @@ static void RemoteControlSet() {
 
         if (gimbal_cmd_send.pitch >= PITCH_MAX_ANGLE) gimbal_cmd_send.pitch = PITCH_MAX_ANGLE;
         if (gimbal_cmd_send.pitch <= PITCH_MIN_ANGLE) gimbal_cmd_send.pitch = PITCH_MIN_ANGLE;
-        // Gimbal_Test_Signal_Generator();
+        //Gimbal_Test_Signal_Generator();
 
     }
     // 左侧开关状态为[下],视觉模式
@@ -460,7 +460,7 @@ static void RemoteControlSet() {
     // 云台软件限位
 
     // 底盘参数,目前没有加入小陀螺(调试似乎暂时没有必要),系数需要调整，遥控器输入灵敏度
-    chassis_cmd_send.vx = -5.0f * ((float) rc_data[TEMP].rc.rocker_r1 / 660); // _水平方向
+    chassis_cmd_send.vx = 5.0f * ((float) rc_data[TEMP].rc.rocker_r1 / 660); // _水平方向
     chassis_cmd_send.vy = 5.0f * ((float) rc_data[TEMP].rc.rocker_r_ / 660); // 1数值方向
     // chassis_cmd_send.vx = 10.0f * (float) rc_data[TEMP].rc.rocker_r_; // _水平方向
     // chassis_cmd_send.vy = 10.0f * (float) rc_data[TEMP].rc.rocker_r1; // 1数值方向
@@ -570,7 +570,7 @@ static void VTRemoteControlSet() {
     if (abs(VTright_) < 0.03f) VTright_ = 0;
     if (abs(VTright1) < 0.03f) VTright1 = 0;
 
-    chassis_cmd_send.vx = -5.0f * VTright1;
+    chassis_cmd_send.vx = 5.0f * VTright1;
     chassis_cmd_send.vy = 5.0f * VTright_;
     //    if (switch_is_down(rc_data[TEMP].rc.switch_left))
     //    {
@@ -669,7 +669,7 @@ static void MouseKeySet() {
     {
         key_d = 0;
     }
-    chassis_cmd_send.vx = (float)key_s * 5.0f - (float)key_w * 5.0f ; // 系数待测
+    chassis_cmd_send.vx = (float)key_w * 5.0f - (float)key_s * 5.0f ; // 系数待测
     chassis_cmd_send.vy = (float)key_a * 5.0f - (float)key_d * 5.0f;
 
     gimbal_cmd_send.yaw -= (float) rc_data[TEMP].mouse.x / 660 * 4; // 系数待测
@@ -948,7 +948,7 @@ static void VTMouseKeySet()
     {
         key_s = 0;
     }
-    chassis_cmd_send.vx = (float) key_s * 5.0f - (float) key_w * 5.0f; // 系数待测
+    chassis_cmd_send.vx = (float) key_w * 5.0f - (float) key_s * 5.0f; // 系数待测
     chassis_cmd_send.vy = (float) key_d * 5.0f - (float) key_a * 5.0f;
 
     gimbal_cmd_send.yaw -= (float) referee_VT_data->vt_ctrl[TEMP].mouse.x / 660 * 4; // 系数待测

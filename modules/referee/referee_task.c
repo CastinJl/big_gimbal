@@ -17,12 +17,10 @@
 #include "chassis.h"
 #include "super_cap.h"
 
-extern SuperCapInstance *cap;                        // 超级电容
 static Referee_Interactive_info_t *Interactive_data; // UI绘制需要的机器人状态数据
 static referee_info_t *referee_recv_info;            // 接收到的裁判系统数据
 Referee_Interactive_info_t ui_data;
 uint8_t UI_Seq;                                      // 包序号，供整个referee文件使用
-extern uint8_t loader_flag = 0;      //拨弹模式选择标志位
 // @todo 不应该使用全局变量
 
 /**
@@ -58,217 +56,245 @@ void UITask()
     MyUIRefresh(referee_recv_info, Interactive_data);
 }
 
-static Graph_Data_t UI_shoot_line[10]; // 射击准线
-static Graph_Data_t UI_shoot_yuan[2];  // 射击圆心
-static Graph_Data_t UI_Energy[6];      // 电容能量条
-static String_Data_t UI_State_sta[7];  // 机器人状态,静态只需画一次
-static String_Data_t UI_State_dyn[7];  // 机器人状态,动态先add才能change
-static uint32_t shoot_line_location[10] = {540, 960, 490, 515, 565};
-static String_Data_t UI_prompt_sta[3];  // 操作手提示
+
+
+//规定第0层是静态的   也就是说是不变的画图     更高的层数用来画动态的图形   注意更高层会覆盖更底层的内容   删除时可以用del函数删除同一图层的内容
+/* ================= 全局图形变量定义 ================= */
+
+// 静态图形
+static Graph_Data_t UI_Static_Shapes[4];
+static String_Data_t UI_Static_Texts[8];
+// 动态状态框
+static Graph_Data_t UI_Dynamic_Boxes[7];
+// 动态条
+static Graph_Data_t UI_Dynamic_Bars[1];    // CAP Bar
+// 动态数值
+static Graph_Data_t UI_Dynamic_Numbers[1]; // Bullet Num
+// 受击指示线
+static Graph_Data_t UI_Dynamic_HitLines[4];
+static uint8_t beat_direction_continuous_cnt[4] = {0}; // 四个方向
+
+
 
 void MyUIInit()
 {
-    if (!referee_recv_info->init_flag)
-        vTaskDelete(NULL); // 如果没有初始化裁判系统则直接删除ui任务
-    while (referee_recv_info->GameRobotState.robot_id == 0)
-        osDelay(100); // 若还未收到裁判系统数据,等待一段时间后再检查
+    // if (!referee_recv_info->init_flag)
+    //     vTaskDelete(NULL); // 如果没有初始化裁判系统则直接删除ui任务
+    // while (referee_recv_info->GameRobotState.robot_id == 0)
+    //     osDelay(100); // 若还未收到裁判系统数据,等待一段时间后再检查
 
-    DeterminRobotID();                                            // 确定ui要发送到的目标客户端
+    //DeterminRobotID();                                            // 确定ui要发送到的目标客户端
     UIDelete(&referee_recv_info->referee_id, UI_Data_Del_ALL, 0); // 清空UI
 
-    // 绘制发射基准线和基准圆
-    UILineDraw(&UI_shoot_line[0], "sl0", UI_Graph_ADD, 7, UI_Color_White, 3, 710, shoot_line_location[0], 1210, shoot_line_location[0]);
-    UILineDraw(&UI_shoot_line[1], "sl1", UI_Graph_ADD, 7, UI_Color_White, 3, shoot_line_location[1], 340, shoot_line_location[1], 740);
-    UILineDraw(&UI_shoot_line[2], "sl2", UI_Graph_ADD, 7, UI_Color_Yellow, 2, 810, shoot_line_location[2], 1110, shoot_line_location[2]);
-    UILineDraw(&UI_shoot_line[3], "sl3", UI_Graph_ADD, 7, UI_Color_Orange, 2, 960, 200, 960, 600);
-    UICircleDraw(&UI_shoot_yuan[0],"sy0",UI_Graph_ADD,7,UI_Color_Yellow,2,960,540,80);
-    UIGraphRefresh(&referee_recv_info->referee_id, 5, UI_shoot_line[0], UI_shoot_line[1], UI_shoot_line[2], UI_shoot_line[3],UI_shoot_yuan[0]);
+    // 静态   状态文字   name取前三个字母即可
+    UICharDraw(&UI_Static_Texts[0], "fri", UI_Graph_ADD, 0, UI_Color_Cyan, 25, 3, 450, 590, "FRIC");
+    UICharRefresh(&referee_recv_info->referee_id, UI_Static_Texts[0]);
+    UICharDraw(&UI_Static_Texts[1], "aut", UI_Graph_ADD, 0, UI_Color_Cyan, 20, 2, 265, 865, "AUTOAIM");
+    UICharRefresh(&referee_recv_info->referee_id, UI_Static_Texts[1]);
+    UICharDraw(&UI_Static_Texts[2], "sin", UI_Graph_ADD, 0, UI_Color_Cyan, 20, 2, 521, 865, "SINGLE");
+    UICharRefresh(&referee_recv_info->referee_id, UI_Static_Texts[2]);
+    UICharDraw(&UI_Static_Texts[3], "con", UI_Graph_ADD, 0, UI_Color_Cyan, 20, 2, 705, 865, "CONTINUE");
+    UICharRefresh(&referee_recv_info->referee_id, UI_Static_Texts[3]);
+    UICharDraw(&UI_Static_Texts[4], "fol", UI_Graph_ADD, 0, UI_Color_Cyan, 20, 2, 1098, 865, "FOLLOW");
+    UICharRefresh(&referee_recv_info->referee_id, UI_Static_Texts[4]);
+    UICharDraw(&UI_Static_Texts[5], "spi", UI_Graph_ADD, 0, UI_Color_Cyan, 20, 2, 1265, 865, "SPIN");
+    UICharRefresh(&referee_recv_info->referee_id, UI_Static_Texts[5]);
+    UICharDraw(&UI_Static_Texts[6], "bul", UI_Graph_ADD, 0, UI_Color_Cyan, 20, 2, 1450, 865, "BULLET");
+    UICharRefresh(&referee_recv_info->referee_id, UI_Static_Texts[6]);
+    UICharDraw(&UI_Static_Texts[7], "cap", UI_Graph_ADD, 0, UI_Color_Cyan, 20, 2, 940, 169, "CAP");
+    UICharRefresh(&referee_recv_info->referee_id, UI_Static_Texts[7]);
 
-    // 绘制车辆状态标志指示，静态
-    UICharDraw(&UI_State_sta[0], "ss0", UI_Graph_ADD, 8, UI_Color_Main, 20, 2, 10, 750, "E.spin:");
-    UICharRefresh(&referee_recv_info->referee_id, UI_State_sta[0]);
-//    UICharDraw(&UI_State_sta[1], "ss1", UI_Graph_ADD, 8, UI_Color_Yellow, 15, 2, 150, 700, "gimbal:");
-//    UICharRefresh(&referee_recv_info->referee_id, UI_State_sta[1]);
-//    UICharDraw(&UI_State_sta[2], "ss2", UI_Graph_ADD, 8, UI_Color_Orange, 15, 2, 150, 650, "shoot:");
-//    UICharRefresh(&referee_recv_info->referee_id, UI_State_sta[2]);
-    UICharDraw(&UI_State_sta[3], "ss3", UI_Graph_ADD, 8, UI_Color_Pink, 20, 2, 10, 700, "F.frict:");
-    UICharRefresh(&referee_recv_info->referee_id, UI_State_sta[3]);
-    UICharDraw(&UI_State_sta[4], "ss4", UI_Graph_ADD, 8, UI_Color_Main, 20, 2, 10, 650, "B.lid:");
-    UICharRefresh(&referee_recv_info->referee_id, UI_State_sta[4]);
-    UICharDraw(&UI_State_sta[5], "ss5", UI_Graph_ADD, 8, UI_Color_Pink, 20, 2, 10, 600, "Q.heat:");
-    UICharRefresh(&referee_recv_info->referee_id, UI_State_sta[5]);
-//    UICharDraw(&UI_State_sta[5], "ss5", UI_Graph_ADD, 8, UI_Color_Pink, 15, 2, 150, 800, "load:");
-//    UICharRefresh(&referee_recv_info->referee_id, UI_State_sta[5]);
+    // 静态图形
+    // bll  bottom_line_left   blr  bottom_line_right  前进轨迹线
+    UILineDraw(&UI_Static_Shapes[0], "bll", UI_Graph_ADD, 0, UI_Color_Purplish_red, 3, 539, 43, 682, 252);
+    UILineDraw(&UI_Static_Shapes[1], "blr", UI_Graph_ADD, 0, UI_Color_Purplish_red, 3, 1389, 39, 1232, 250);
+    //!!!!!!!!!!!!!!!!!!!!按照手册   不支持一次发送3 4 6个图形   也就是说一次必须只能发1 2 5 7个
+    UIGraphRefresh(&referee_recv_info->referee_id, 2, UI_Static_Shapes[0],UI_Static_Shapes[1]);
 
-    // 操作手提示
-    UICharDraw(&UI_prompt_sta[0], "ss8", UI_Graph_ADD,8, UI_Color_Pink, 30, 4, 1650, 700, "leng jing");
-    UICharRefresh(&referee_recv_info->referee_id, UI_prompt_sta[0]);
-    UICharDraw(&UI_prompt_sta[1], "ss9", UI_Graph_ADD, 8,UI_Color_Pink, 30, 4, 1650, 800, "zhi hui");
-    UICharRefresh(&referee_recv_info->referee_id, UI_prompt_sta[1]);
-    UICharDraw(&UI_prompt_sta[2], "ss10", UI_Graph_ADD, 8,UI_Color_Pink, 30, 4, 1650, 600, "bie ji");
-    UICharRefresh(&referee_recv_info->referee_id, UI_prompt_sta[2]);
-    // 底盘功率显示，静态
-//    UICharDraw(&UI_State_sta[6], "ss6", UI_Graph_ADD, 8, UI_Color_Green, 18, 2, 620, 230, "MAX:");
-//    UICharRefresh(&referee_recv_info->referee_id, UI_State_sta[6]);
+    // 准星圆点   poi  point
+    UICircleDraw(&UI_Static_Shapes[2], "poi", UI_Graph_ADD, 0, UI_Color_Green, 10, 955, 535, 5);
+    // CAP 边框   cre  cap_rectangle
+    UIRectangleDraw(&UI_Static_Shapes[3], "cre", UI_Graph_ADD, 0, UI_Color_White, 1, 665, 70, 1265, 100);
+    UIGraphRefresh(&referee_recv_info->referee_id, 2, UI_Static_Shapes[2],UI_Static_Shapes[3]);
 
-    // 绘制车辆状态标志，动态
-    // 由于初始化时xxx_last_mode默认为0，所以此处对应UI也应该设为0时对应的UI，防止模式不变的情况下无法置位flag，导致UI无法刷新
-    UICharDraw(&UI_State_dyn[0], "sd0", UI_Graph_ADD, 8, UI_Color_Main, 20, 2, 170, 750, "off");
-    UICharRefresh(&referee_recv_info->referee_id, UI_State_dyn[0]);
-//    UICharDraw(&UI_State_dyn[1], "sd1", UI_Graph_ADD, 8, UI_Color_Yellow, 15, 2, 270, 700, "zeroforce");
-//    UICharRefresh(&referee_recv_info->referee_id, UI_State_dyn[1]);
-//    UICharDraw(&UI_State_dyn[2], "sd2", UI_Graph_ADD, 8, UI_Color_Orange, 15, 2, 270, 650, "off");
-//    UICharRefresh(&referee_recv_info->referee_id, UI_State_dyn[2]);
-    UICharDraw(&UI_State_dyn[3], "sd3", UI_Graph_ADD, 8, UI_Color_Pink, 20, 2, 170, 700, "off");
-    UICharRefresh(&referee_recv_info->referee_id, UI_State_dyn[3]);
-    UICharDraw(&UI_State_dyn[4], "sd4", UI_Graph_ADD, 8, UI_Color_Pink, 20, 2, 170, 650, "off");
-    UICharRefresh(&referee_recv_info->referee_id, UI_State_dyn[4]);
-    UICharDraw(&UI_State_dyn[5], "sd5", UI_Graph_ADD, 8, UI_Color_Pink, 20, 2, 170, 600, "on ");
-    UICharRefresh(&referee_recv_info->referee_id, UI_State_dyn[5]);
-//    UICharDraw(&UI_State_dyn[5], "sd5", UI_Graph_ADD, 8, UI_Color_Pink, 15, 2, 270, 800, "999");
-//    UICharRefresh(&referee_recv_info->referee_id, UI_State_dyn[5]);
+    // 动态层初始化 (Layer 2-9)
+    // 先 ADD 一遍，位置设为 0 或者默认状态，方便后面 Change
+    // 状态框 (Boxes)
+    // 名字映射  rai rectangle autoaim    rsi rectangle single     rco rec continue     rfo  rec follow     rsp   rec spin    rfr  rec friction
+    UIRectangleDraw(&UI_Dynamic_Boxes[0], "rai", UI_Graph_ADD, 1, UI_Color_Purplish_red, 4, 0, 0, 0, 0);
+    UIRectangleDraw(&UI_Dynamic_Boxes[1], "rsi", UI_Graph_ADD, 1, UI_Color_Purplish_red, 4, 0, 0, 0, 0);
+    UIRectangleDraw(&UI_Dynamic_Boxes[2], "rco", UI_Graph_ADD, 1, UI_Color_Purplish_red, 4, 0, 0, 0, 0);
+    UIRectangleDraw(&UI_Dynamic_Boxes[3], "rfo", UI_Graph_ADD, 1, UI_Color_Purplish_red, 4, 0, 0, 0, 0);
+    UIRectangleDraw(&UI_Dynamic_Boxes[4], "rsp", UI_Graph_ADD, 1, UI_Color_Purplish_red, 4, 0, 0, 0, 0);
+    UIRectangleDraw(&UI_Dynamic_Boxes[5], "rfr", UI_Graph_ADD, 1, UI_Color_Purplish_red, 4, 0, 0, 0, 0);
+    // 中心瞄准框 rec_center
+    UIRectangleDraw(&UI_Dynamic_Boxes[6], "rec", UI_Graph_ADD, 2, UI_Color_Cyan, 2, 697, 363, 1227, 723);//todo:换成自瞄识别范围对应的位置
+    UIGraphRefresh(&referee_recv_info->referee_id, 7, UI_Dynamic_Boxes[0],UI_Dynamic_Boxes[1],UI_Dynamic_Boxes[2],UI_Dynamic_Boxes[3],UI_Dynamic_Boxes[4],UI_Dynamic_Boxes[5],UI_Dynamic_Boxes[6]);
 
-    // 能量条框
-//    UIRectangleDraw(&UI_Energy[0], "ss6", UI_Graph_ADD, 7, UI_Color_Green, 2, 720, 140, 1220, 180);
-//    UIGraphRefresh(&referee_recv_info->referee_id, 1, UI_Energy[0]);
+    // CAP 储能条  cap line
+    UILineDraw(&UI_Dynamic_Bars[0], "cli", UI_Graph_ADD, 3, UI_Color_Green, 30, 650, 70, 655, 100); // 初始长度1   高 30
+    UIGraphRefresh(&referee_recv_info->referee_id, 1, UI_Dynamic_Bars[0]);
+    // Bullet 数值 (num)
+    UIIntDraw(&UI_Dynamic_Numbers[0], "num", UI_Graph_ADD, 4, UI_Color_Purplish_red, 30, 3, 1436, 826, 0);
+    UIGraphRefresh(&referee_recv_info->referee_id, 1, UI_Dynamic_Numbers[0]);
+    // 受击指示线 lil, lir, lib, lif       line_left, right, back, front
+    UILineDraw(&UI_Dynamic_HitLines[0], "lil", UI_Graph_ADD, 5, UI_Color_Orange, 10, 0, 0, 0, 0);
+    UILineDraw(&UI_Dynamic_HitLines[1], "lir", UI_Graph_ADD, 5, UI_Color_Orange, 10, 0, 0, 0, 0);
+    UIGraphRefresh(&referee_recv_info->referee_id, 2, UI_Dynamic_HitLines[0],UI_Dynamic_HitLines[1]);
+    UILineDraw(&UI_Dynamic_HitLines[2], "lib", UI_Graph_ADD, 5, UI_Color_Orange, 10, 0, 0, 0, 0);
+    UILineDraw(&UI_Dynamic_HitLines[3], "lif", UI_Graph_ADD, 5, UI_Color_Orange, 10, 0, 0, 0, 0);
+    UIGraphRefresh(&referee_recv_info->referee_id, 2, UI_Dynamic_HitLines[2],UI_Dynamic_HitLines[3]);;
 
-    // 底盘功率显示,动态
-    //UIFloatDraw(&UI_Energy[1], "sd6", UI_Graph_ADD, 8, UI_Color_Green, 18, 2, 2, 850, 230, Interactive_data->Chassis_Power_Data.chassis_power_mx * 1000);
-    UIGraphRefresh(&referee_recv_info->referee_id, 1, UI_Energy[1]);
-
-    // 电容电压
-    // UIFloatDraw(&UI_Energy[2], "sd7", UI_Graph_ADD, 8, UI_Color_Pink, 18, 2,2, 850, 280,Interactive_data->Cap_Data.cap_vol);
-    UIGraphRefresh(&referee_recv_info->referee_id, 1, UI_Energy[2]);
-    // 电容能量条
-//    UILineDraw(&UI_Energy[3], "sd8", UI_Graph_ADD, 8, UI_Color_Pink, 30, 720, 160, (uint32_t)(720 + (Interactive_data->Cap_Data.cap_vol-1200) * 0.416), 160);
-//    UIGraphRefresh(&referee_recv_info->referee_id, 1, UI_Energy[3]);
-
-    // 发弹量条框
-    UILineDraw(&UI_Energy[4], "ss7", UI_Graph_ADD, 7, UI_Color_Pink, 2, 1325, 500, 1480, 500);
-    UIGraphRefresh(&referee_recv_info->referee_id, 1, UI_Energy[4]);
 }
 
 static void MyUIRefresh(referee_info_t *referee_recv_info, Referee_Interactive_info_t *_Interactive_data)
 {
     UIChangeCheck(_Interactive_data);
-    // chassis
+    // 底盘状态
     if (_Interactive_data->Referee_Interactive_Flag.chassis_flag == 1)
     {
-        // switch (_Interactive_data->chassis_mode)
-        //     // 此处注意字数对齐问题，字数相同才能覆盖掉
-        // {
-        //     case CHASSIS_ZERO_FORCE:
-        //          UICharDraw(&UI_State_dyn[0], "sd0", UI_Graph_Change, 8, UI_Color_Main, 20, 2, 170, 750, "off");
-        //          break;
-        //     case CHASSIS_ROTATE:
-        //          UICharDraw(&UI_State_dyn[0], "sd0", UI_Graph_Change, 8, UI_Color_Main, 20, 2, 170, 750, "on ");
-        //          break;
-        //     case CHASSIS_SIDEWAYS:
-        //         UICharDraw(&UI_State_dyn[0], "sd0", UI_Graph_Change, 8, UI_Color_Main, 20, 2, 170, 750, "off");
-        //         break;
-        //     case CHASSIS_NO_FOLLOW:
-        //         UICharDraw(&UI_State_dyn[0], "sd0", UI_Graph_Change, 8, UI_Color_Main, 20, 2, 170, 750, "off");
-        //         break;
-        //     case CHASSIS_FOLLOW_GIMBAL_YAW:
-        //         UICharDraw(&UI_State_dyn[0], "sd0", UI_Graph_Change, 8, UI_Color_Main, 20, 2, 170, 750, "off");
-        //         break;
-        // }
-        UICharRefresh(&referee_recv_info->referee_id, UI_State_dyn[0]);
+        if (_Interactive_data->chassis_mode == CHASSIS_ROTATE) {
+            UIRectangleDraw(&UI_Dynamic_Boxes[3], "rfo", UI_Graph_Change, 1, UI_Color_Purplish_red, 4, 0, 0, 0, 0);
+            UIRectangleDraw(&UI_Dynamic_Boxes[4], "rsp", UI_Graph_Change, 1, UI_Color_Purplish_red, 4, 1085, 820, 1224, 870);
+        }
+        else if (_Interactive_data->chassis_mode == CHASSIS_FOLLOW_GIMBAL_YAW) {
+            UIRectangleDraw(&UI_Dynamic_Boxes[3], "rfo", UI_Graph_Change, 1, UI_Color_Purplish_red, 4, 1250, 820, 1365, 870);
+            UIRectangleDraw(&UI_Dynamic_Boxes[4], "rsp", UI_Graph_Change, 1, UI_Color_Purplish_red, 4, 0, 0, 0, 0);
+        }else {
+            UIRectangleDraw(&UI_Dynamic_Boxes[3], "rfo", UI_Graph_Change, 1, UI_Color_Purplish_red, 4, 0, 0, 0, 0);
+            UIRectangleDraw(&UI_Dynamic_Boxes[4], "rsp", UI_Graph_Change, 1, UI_Color_Purplish_red, 4, 0, 0, 0, 0);
+        }
+        UIGraphRefresh(&referee_recv_info->referee_id, 2, UI_Dynamic_Boxes[3],UI_Dynamic_Boxes[4]);
         _Interactive_data->Referee_Interactive_Flag.chassis_flag = 0;
     }
-    // gimbal
-//    if (_Interactive_data->Referee_Interactive_Flag.gimbal_flag == 1)
-//    {
-//        switch (_Interactive_data->gimbal_mode)
-//        {
-//        case GIMBAL_ZERO_FORCE:
-//        {
-//            UICharDraw(&UI_State_dyn[1], "sd1", UI_Graph_Change, 8, UI_Color_Yellow, 15, 2, 270, 700, "zeroforce");
-//            break;
-//        }
-//        case GIMBAL_FREE_MODE:
-//        {
-//            UICharDraw(&UI_State_dyn[1], "sd1", UI_Graph_Change, 8, UI_Color_Yellow, 15, 2, 270, 700, "free     ");
-//            break;
-//        }
-//        case GIMBAL_GYRO_MODE:
-//        {
-//            UICharDraw(&UI_State_dyn[1], "sd1", UI_Graph_Change, 8, UI_Color_Yellow, 15, 2, 270, 700, "gyro     ");
-//            break;
-//        }
-//        }
-//        UICharRefresh(&referee_recv_info->referee_id, UI_State_dyn[1]);
-//        _Interactive_data->Referee_Interactive_Flag.gimbal_flag = 0;
-//    }
-    // shoot
-//    if (_Interactive_data->Referee_Interactive_Flag.shoot_flag == 1)
-//    {
-//        UICharDraw(&UI_State_dyn[2], "sd2", UI_Graph_Change, 8, UI_Color_Pink, 15, 2, 270, 650, _Interactive_data->shoot_mode == SHOOT_ON ? "on " : "off");
-//        UICharRefresh(&referee_recv_info->referee_id, UI_State_dyn[2]);
-//        _Interactive_data->Referee_Interactive_Flag.shoot_flag = 0;
-//    }
-    // friction
+
+    // 摩擦轮状态框 (FRIC)
     if (_Interactive_data->Referee_Interactive_Flag.friction_flag == 1)
     {
-        UICharDraw(&UI_State_dyn[3], "sd3", UI_Graph_Change, 8, UI_Color_Pink, 20, 2, 170, 700, _Interactive_data->friction_mode == FRICTION_ON ? "on " : "off");
-        UICharRefresh(&referee_recv_info->referee_id, UI_State_dyn[3]);
+        if (_Interactive_data->friction_mode == FRICTION_ON) {
+            UIRectangleDraw(&UI_Dynamic_Boxes[5], "rfr", UI_Graph_Change, 1, UI_Color_Purplish_red, 4, 440, 535, 559, 596);
+        }
+        else {
+            UIRectangleDraw(&UI_Dynamic_Boxes[5], "rfr", UI_Graph_Change, 1, UI_Color_Purplish_red, 4, 0, 0, 0, 0);
+        }
+        UIGraphRefresh(&referee_recv_info->referee_id, 1, UI_Dynamic_Boxes[5]);
         _Interactive_data->Referee_Interactive_Flag.friction_flag = 0;
     }
-    // // lid
-    // if (_Interactive_data->Referee_Interactive_Flag.lid_flag == 1)
-    // {
-    //     UICharDraw(&UI_State_dyn[4], "sd4", UI_Graph_Change, 8, UI_Color_Pink, 20, 2, 170, 650, _Interactive_data->lid_mode == LID_OPEN ? "on " : "off");
-    //     UICharRefresh(&referee_recv_info->referee_id, UI_State_dyn[4]);
-    //     _Interactive_data->Referee_Interactive_Flag.lid_flag = 0;
-    // }
-    // heat
-    if (_Interactive_data->Referee_Interactive_Flag.heat_flag == 1)
+
+   // 射击模式 (SINGLE / CONTINUE)
+    if (_Interactive_data->Referee_Interactive_Flag.load_flag == 1)
     {
-        // UICharDraw(&UI_State_dyn[5], "sd5", UI_Graph_Change, 8, UI_Color_Pink, 20, 2, 170, 600, _Interactive_data->heat_mode == HEAT_OPEN ? "on " : "off");
-        UICharRefresh(&referee_recv_info->referee_id, UI_State_dyn[5]);
-        _Interactive_data->Referee_Interactive_Flag.heat_flag = 0;
+        if (_Interactive_data->loader_mode == LOAD_BURSTFIRE) {
+            UIRectangleDraw(&UI_Dynamic_Boxes[1], "rsi", UI_Graph_Change, 1, UI_Color_Purplish_red, 4, 0, 0, 0, 0);
+            UIRectangleDraw(&UI_Dynamic_Boxes[2], "rco", UI_Graph_Change, 1, UI_Color_Purplish_red, 4, 690, 820, 875, 871);
+        }
+        else if (_Interactive_data->loader_mode == LOAD_1_BULLET) {
+            UIRectangleDraw(&UI_Dynamic_Boxes[1], "rsi", UI_Graph_Change, 1, UI_Color_Purplish_red, 4, 510, 820, 649, 870);
+            UIRectangleDraw(&UI_Dynamic_Boxes[2], "rco", UI_Graph_Change, 1, UI_Color_Purplish_red, 4, 0, 0, 0, 0);
+        }
+        else {
+            UIRectangleDraw(&UI_Dynamic_Boxes[1], "rsi", UI_Graph_Change, 1, UI_Color_Purplish_red, 4, 0, 0, 0, 0);
+            UIRectangleDraw(&UI_Dynamic_Boxes[2], "rco", UI_Graph_Change, 1, UI_Color_Purplish_red, 4, 0, 0, 0, 0);
+        }
+        UIGraphRefresh(&referee_recv_info->referee_id, 2, UI_Dynamic_Boxes[1],UI_Dynamic_Boxes[2]);
+        _Interactive_data->Referee_Interactive_Flag.load_flag = 0;
     }
-    // loader_mode
-//    if (_Interactive_data->Referee_Interactive_Flag.load_flag == 1)
-//    {
-//        switch (loader_flag)
-//        {
-//            case 2:
-//            {
-//                UICharDraw(&UI_State_dyn[5], "sd5", UI_Graph_Change, 8, UI_Color_Pink, 15, 2, 270, 800, " 1 ");
-//                break;
-//            }
-//            case 1:
-//            {
-//                UICharDraw(&UI_State_dyn[5], "sd5", UI_Graph_Change, 8, UI_Color_Pink, 15, 2, 270, 800, " 3 ");
-//                break;
-//            }
-//            case 0:
-//            {
-//                UICharDraw(&UI_State_dyn[5], "sd5", UI_Graph_Change, 8, UI_Color_Pink, 15, 2, 270, 800, "999");
-//                break;
-//            }
-//        }
-//        UICharRefresh(&referee_recv_info->referee_id, UI_State_dyn[5]);
-//        _Interactive_data->Referee_Interactive_Flag.load_flag = 0;
-//    }
-    // // power
-    // if (_Interactive_data->Referee_Interactive_Flag.Power_flag == 1)
-    // {
-    //     UIFloatDraw(&UI_Energy[1], "sd6", UI_Graph_Change, 8, UI_Color_Green, 18, 2, 2, 850, 230, _Interactive_data->Chassis_Power_Data.chassis_power_mx * 1000);
-    //     UIGraphRefresh(&referee_recv_info->referee_id, 2, UI_Energy[1]);
-    //     _Interactive_data->Referee_Interactive_Flag.Power_flag = 0;
-    // }
-    // UIFloatDraw(&UI_Energy[2], "sd7", UI_Graph_Change, 8, UI_Color_Pink, 18, 2,2, 850, 280,Interactive_data->Cap_Data.cap_vol);
-    UIGraphRefresh(&referee_recv_info->referee_id, 1,UI_Energy[2]);
-//    UILineDraw(&UI_Energy[3], "sd8", UI_Graph_Change, 8, UI_Color_Pink, 30, 720, 160, (uint32_t)(720 + (Interactive_data->Cap_Data.cap_vol-1200) * 0.416), 160);
-//    UIGraphRefresh(&referee_recv_info->referee_id, 1, &UI_Energy[3]);
-    //绘制开火建议
-    // if (_Interactive_data->Referee_Interactive_Flag.aim_flag == 1) {
-    //     UICircleDraw(&UI_shoot_yuan[0], "sy0", UI_Graph_Change, 7, _Interactive_data->aim_fire == 0 ? UI_Color_Yellow : UI_Color_Main, 2, 960, 540, 80);
-    //     UIGraphRefresh(&referee_recv_info->referee_id, 1, UI_shoot_yuan[0]);
-    //     _Interactive_data->Referee_Interactive_Flag.aim_flag = 0;
-    // }
+
+    // 自瞄状态框 (AUTOAIM)
+    if (_Interactive_data->Referee_Interactive_Flag.auto_aim_mode_flag == 1)
+    {
+        if (_Interactive_data->auto_aim_mode == 1){
+            UIRectangleDraw(&UI_Dynamic_Boxes[0], "rai", UI_Graph_Change, 1, UI_Color_Purplish_red, 4, 250, 820, 418, 870);
+        }else {
+            UIRectangleDraw(&UI_Dynamic_Boxes[0], "rai", UI_Graph_Change, 1, UI_Color_Purplish_red, 4, 0,0,0,0);
+        }
+        UIGraphRefresh(&referee_recv_info->referee_id, 1, UI_Dynamic_Boxes[0]);
+        _Interactive_data->Referee_Interactive_Flag.auto_aim_mode_flag = 0;
+    }
+
+    //  刷新弹量数值 (Bullet)
+    if (_Interactive_data->Referee_Interactive_Flag.bullet_number_flag == 1)
+    {
+        int number=Interactive_data->bullet_number;
+        if (number<0) number=0;
+        UIIntDraw(&UI_Dynamic_Numbers[0], "num", UI_Graph_Change, 4, UI_Color_Purplish_red, 30, 3, 1436, 826, number);
+        UIGraphRefresh(&referee_recv_info->referee_id, 1, UI_Dynamic_Numbers[0]);
+        _Interactive_data->Referee_Interactive_Flag.bullet_number_flag = 0;
+    }
+
+    // 刷新电容 (CAP) 进度条
+    if (_Interactive_data->Referee_Interactive_Flag.cap_energy_flag == 1)
+    {
+        int length = Interactive_data->SuperCapEnergy*6;//电容0到100   长度0到600
+        UILineDraw(&UI_Dynamic_Bars[0], "cli", UI_Graph_Change, 3, UI_Color_Green, 30, 650, 70, 651+length, 100);
+        UIGraphRefresh(&referee_recv_info->referee_id, 1, UI_Dynamic_Bars[0]);
+        _Interactive_data->Referee_Interactive_Flag.cap_energy_flag = 0;
+    }
+
+    //开火建议
+    if (_Interactive_data->Referee_Interactive_Flag.auto_aim_fire_suggestion_flag == 1)
+    {
+        if (Interactive_data->auto_aim_fire_suggestion==1)
+            UIRectangleDraw(&UI_Dynamic_Boxes[6], "rec", UI_Graph_Change, 2, UI_Color_Purplish_red, 2, 697, 363, 1227, 723);//todo:换成自瞄识别范围对应的位置
+        else
+            UIRectangleDraw(&UI_Dynamic_Boxes[6], "rec", UI_Graph_Change, 2, UI_Color_Cyan, 2, 697, 363, 1227, 723);//todo:换成自瞄识别范围对应的位置
+        UIGraphRefresh(&referee_recv_info->referee_id, 1, UI_Dynamic_Boxes[6]);
+        _Interactive_data->Referee_Interactive_Flag.auto_aim_fire_suggestion_flag = 0;
+    }
+
+    // 受击指示线刷新
+    if (_Interactive_data->Referee_Interactive_Flag.beat_flag == 1) {
+        switch (_Interactive_data->armor_beat_id)
+        {
+        case 0:
+                if(beat_direction_continuous_cnt[0] >0 && beat_direction_continuous_cnt[0] %10==0) {//每次更新都是加10   只在更新的时候画线  其余时间保持不更新
+                    UILineDraw(&UI_Dynamic_HitLines[3], "lif", UI_Graph_Change, 5, UI_Color_Orange, 10,733,786,1167,786);
+                    UIGraphRefresh(&referee_recv_info->referee_id, 1, UI_Dynamic_HitLines[3]);
+                    beat_direction_continuous_cnt[0]--;
+                }else if (beat_direction_continuous_cnt[0]<=0){
+                    UILineDraw(&UI_Dynamic_HitLines[3], "lif", UI_Graph_Change, 5, UI_Color_Orange, 10,0,0,0,0);
+                    UIGraphRefresh(&referee_recv_info->referee_id, 1, UI_Dynamic_HitLines[3]);
+                    beat_direction_continuous_cnt[0]=0;
+                }
+            break;
+        case 1:
+                if(beat_direction_continuous_cnt[1] > 0 && beat_direction_continuous_cnt[1] %10==0) {
+                    UILineDraw(&UI_Dynamic_HitLines[0], "lil", UI_Graph_Change, 5, UI_Color_Orange, 10, 624,353,624,725);
+                    UIGraphRefresh(&referee_recv_info->referee_id, 1, UI_Dynamic_HitLines[0]);
+                    beat_direction_continuous_cnt[1]--;
+                }else if (beat_direction_continuous_cnt[1]<=0){
+                    UILineDraw(&UI_Dynamic_HitLines[0], "lil", UI_Graph_Change, 5, UI_Color_Orange, 10,0,0,0,0);
+                    UIGraphRefresh(&referee_recv_info->referee_id, 1, UI_Dynamic_HitLines[0]);
+                    beat_direction_continuous_cnt[1]=0;
+                }
+            break;
+        case 2:
+                if(beat_direction_continuous_cnt[2] > 0 && beat_direction_continuous_cnt[2] %10==0) {
+                    UILineDraw(&UI_Dynamic_HitLines[2], "lib", UI_Graph_Change, 5, UI_Color_Orange, 10, 731,292,1165,292);
+                    UIGraphRefresh(&referee_recv_info->referee_id, 1, UI_Dynamic_HitLines[2]);
+                    beat_direction_continuous_cnt[2]--;
+                }else if (beat_direction_continuous_cnt[2]<=0){
+                    UILineDraw(&UI_Dynamic_HitLines[2], "lib", UI_Graph_Change, 5, UI_Color_Orange, 10,0,0,0,0);
+                    UIGraphRefresh(&referee_recv_info->referee_id, 1, UI_Dynamic_HitLines[2]);
+                    beat_direction_continuous_cnt[2]=0;
+                }
+            break;
+        case 3:
+                if(beat_direction_continuous_cnt[3] > 0 && beat_direction_continuous_cnt[3] %10==0) {
+                    UILineDraw(&UI_Dynamic_HitLines[1], "lir", UI_Graph_Change, 5, UI_Color_Orange, 10, 1296,357,1296,729);
+                    UIGraphRefresh(&referee_recv_info->referee_id, 1, UI_Dynamic_HitLines[1]);
+                    beat_direction_continuous_cnt[3]--;
+                }else if (beat_direction_continuous_cnt[3]<=0){
+                    UILineDraw(&UI_Dynamic_HitLines[1], "lir", UI_Graph_Change, 5, UI_Color_Orange, 10,0,0,0,0);
+                    UIGraphRefresh(&referee_recv_info->referee_id, 1, UI_Dynamic_HitLines[1]);
+                    beat_direction_continuous_cnt[3]=0;
+                }
+            break;
+        default:
+            break;
+        }
+        _Interactive_data->Referee_Interactive_Flag.beat_flag = 0;
+    }
 }
 
 /**
@@ -285,51 +311,64 @@ static void UIChangeCheck(Referee_Interactive_info_t *_Interactive_data)
         _Interactive_data->chassis_last_mode = _Interactive_data->chassis_mode;
     }
 
-    if (_Interactive_data->auto_aim_fire_suggestion != _Interactive_data->auto_aim_fire_last_suggestion)
-    {
-        _Interactive_data->Referee_Interactive_Flag.shoot_flag = 1;
-        _Interactive_data->auto_aim_fire_last_suggestion = _Interactive_data->auto_aim_fire_suggestion;
-    }
-
     if (_Interactive_data->friction_mode != _Interactive_data->friction_last_mode)
     {
         _Interactive_data->Referee_Interactive_Flag.friction_flag = 1;
         _Interactive_data->friction_last_mode = _Interactive_data->friction_mode;
     }
 
-    if (_Interactive_data->auto_aim_mode != _Interactive_data->auto_aim_last_mode)
-    {
-        _Interactive_data->Referee_Interactive_Flag.aim_flag = 1;
-        _Interactive_data->auto_aim_last_mode = _Interactive_data->auto_aim_mode;
-    }
-
-    // if (_Interactive_data->heat_mode != _Interactive_data->heat_last_mode)
-    // {
-    //     _Interactive_data->Referee_Interactive_Flag.heat_flag = 1;
-    //     _Interactive_data->heat_last_mode = _Interactive_data->heat_mode;
-    // }
-
-    // if (_Interactive_data->Chassis_Power_Data.chassis_power_mx != _Interactive_data->Chassis_last_Power_Data.chassis_power_mx)
-    // {
-    //     _Interactive_data->Referee_Interactive_Flag.Power_flag = 1;
-    //     _Interactive_data->Chassis_last_Power_Data.chassis_power_mx = _Interactive_data->Chassis_Power_Data.chassis_power_mx;
-    // }
-
-    if (_Interactive_data->SuperCapEnergy != _Interactive_data->SuperCapLastEnergy)
-    {
-        _Interactive_data->Referee_Interactive_Flag.cap_flag = 1;
-        _Interactive_data->SuperCapLastEnergy = _Interactive_data->SuperCapEnergy;
-    }
-
-    if (_Interactive_data->loader_mode != _Interactive_data->loader_last_mode)
+    if (_Interactive_data->loader_mode!= _Interactive_data->loader_last_mode)
     {
         _Interactive_data->Referee_Interactive_Flag.load_flag = 1;
         _Interactive_data->loader_last_mode = _Interactive_data->loader_mode;
     }
 
+    if (_Interactive_data->auto_aim_mode != _Interactive_data->auto_aim_last_mode)//自瞄开启
+    {
+        _Interactive_data->Referee_Interactive_Flag.auto_aim_mode_flag = 1;
+        _Interactive_data->auto_aim_last_mode = _Interactive_data->auto_aim_mode;
+    }
+
+    if (_Interactive_data->bullet_number != _Interactive_data->bullet_number_last)
+    {
+        _Interactive_data->Referee_Interactive_Flag.bullet_number_flag = 1;
+        _Interactive_data->bullet_number_last = _Interactive_data->bullet_number;
+    }
+
+    if (_Interactive_data->SuperCapEnergy != _Interactive_data->SuperCapLastEnergy)
+    {
+        _Interactive_data->Referee_Interactive_Flag.cap_energy_flag = 1;
+        _Interactive_data->SuperCapLastEnergy = _Interactive_data->SuperCapEnergy;
+    }
+
+    if (_Interactive_data->auto_aim_fire_suggestion != _Interactive_data->auto_aim_fire_last_suggestion)
+    {
+        _Interactive_data->Referee_Interactive_Flag.auto_aim_fire_suggestion_flag = 1;
+        _Interactive_data->auto_aim_fire_last_suggestion = _Interactive_data->auto_aim_fire_suggestion;
+    }
+
     if (_Interactive_data->armor_beat_id != _Interactive_data->armor_beat_id_last)
     {
-        _Interactive_data->Referee_Interactive_Flag.beat_id_flag = 1;
+         // 受击指示线刷新
+        switch (_Interactive_data->armor_beat_id)
+        {
+        case 0:
+                beat_direction_continuous_cnt[0]+=10;
+            break;
+        case 1:
+                beat_direction_continuous_cnt[1]+=10;
+            break;
+        case 2:
+                beat_direction_continuous_cnt[2]+=10;
+            break;
+        case 3:
+                beat_direction_continuous_cnt[3]+=10;
+            break;
+        default:
+            break;
+        }
+        _Interactive_data->Referee_Interactive_Flag.beat_flag = 1;
         _Interactive_data->armor_beat_id_last = _Interactive_data->armor_beat_id;
     }
+
 }
