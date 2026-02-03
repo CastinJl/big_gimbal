@@ -130,9 +130,13 @@ void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart)
     {
         if (huart == usart_instance[i]->usart_handle)
         {
+            // --- 修改开始 ---
+            // 打印具体的 ErrorCode (十六进制)，以便分析是 ORE, FE, NE 还是 PE
+            LOGWARNING("[bsp_usart] ErrorCode: 0x%08X, instance idx [%d]", huart->ErrorCode, i);
+            // --- 修改结束 ---
+
             HAL_UARTEx_ReceiveToIdle_DMA(usart_instance[i]->usart_handle, usart_instance[i]->recv_buff, usart_instance[i]->recv_buff_size);
             __HAL_DMA_DISABLE_IT(usart_instance[i]->usart_handle->hdmarx, DMA_IT_HT);
-            LOGWARNING("[bsp_usart] USART error callback triggered, instance idx [%d]", i);
             return;
         }
     }

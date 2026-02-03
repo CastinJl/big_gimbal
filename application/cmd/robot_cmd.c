@@ -101,7 +101,7 @@ void RobotCMDInit() {
     rc_data = RemoteControlInit(&huart3);   // 修改为对应串口,注意如果是自研板dbus协议串口需选用添加了反相器的那个
     vision_recv_data = VisionInit(); // 视觉通信串口
     referee_VT_data = VTInit(&huart6);
-    // referee_data = UITaskInit(&huart6, &ui_data); // 裁判系统初始化,会同时初始化UI
+    //referee_data = UITaskInit(&huart6, &ui_data); // 裁判系统初始化,会同时初始化UI
     // Power_data *power_info_ptr = PowerInit(&huart6);
     gimbal_cmd_pub = PubRegister("gimbal_cmd", sizeof(Gimbal_Ctrl_Cmd_s));
     gimbal_feed_sub = SubRegister("gimbal_feed", sizeof(Gimbal_Upload_Data_s));
@@ -442,7 +442,7 @@ static void RemoteControlSet() {
         aim_select.suggest_fire = 0;
         chassis_cmd_send.auto_aim_fire_suggestion = 0;
         //gimbal_cmd_send.yaw -= 0.0025f * (float) rc_data[TEMP].rc.rocker_l_;
-        gimbal_cmd_send.yaw -= 0.001f * (float) rc_data[TEMP].rc.rocker_l_;
+        gimbal_cmd_send.yaw -= 0.0005f * (float) rc_data[TEMP].rc.rocker_l_;
         //gimbal_cmd_send.pitch += 0.001f * (float) rc_data[TEMP].rc.rocker_l1;
         gimbal_cmd_send.pitch += 0.0005f * (float) rc_data[TEMP].rc.rocker_l1;
 
