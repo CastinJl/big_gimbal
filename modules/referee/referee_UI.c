@@ -13,7 +13,7 @@
 #include "crc_ref.h"
 #include "stdio.h"
 #include "rm_referee.h"
-
+uint8_t FLAG_UI;
 // 包序号
 /********************************************删除操作*************************************
 **参数：_id 对应的id结构体
@@ -391,7 +391,7 @@ void UIGraphRefresh(referee_id_t *_id, int cnt, ...)
 	}
 	Append_CRC16_Check_Sum(buffer, temp_datalength);
 	RefereeSend(buffer, temp_datalength);
-
+	FLAG_UI++;
 	va_end(ap); // 结束可变参数的获取
 }
 

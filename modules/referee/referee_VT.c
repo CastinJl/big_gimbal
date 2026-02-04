@@ -28,6 +28,7 @@
 static USARTInstance *VT_usart_instance; // 图传串口实例
 static DaemonInstance *VT_daemon;		 // 图传守护进程
 static VT_info_t VT_info;			     // 图传数据
+uint8_t FLAG_CRC;
 /**
  * @brief  读取图传链路数据,中断中读取保证速度
  * @param  buff: 读取到的裁判系统原始数据
@@ -44,14 +45,17 @@ static void VTJudgeReadData(uint8_t *buff)
     // 判断帧头数据(0)是否为0xA5
     if (buff[SOF] == REFEREE_SOF)
     {
+        FLAG_CRC = 3;
         // 帧头CRC8校验
         if (Verify_CRC8_Check_Sum(buff, LEN_HEADER) == TRUE)
         {
+            FLAG_CRC = 1;
             // 统计一帧数据长度(byte),用于CR16校验
             judge_length = buff[DATA_LENGTH] + LEN_HEADER + LEN_CMDID + LEN_TAIL;
             // 帧尾CRC16校验
             if (Verify_CRC16_Check_Sum(buff, judge_length) == TRUE)
             {
+                FLAG_CRC = 5;
                 // 2个8位拼成16位int
                 VT_info.CmdID = (buff[6] << 8 | buff[5]);
                 // 解析数据命令码,将数据拷贝到相应结构体中(注意拷贝数据的长度)
@@ -77,6 +81,7 @@ static void VTJudgeReadData(uint8_t *buff)
     {
         if (Verify_CRC16_Check_Sum(buff, 21) == TRUE)//遥控帧帧尾CRC校验
         {
+            FLAG_CRC = 2;
             VT_info.vt_ctrl[TEMP].vt.sof_1 = buff[0];
             VT_info.vt_ctrl[TEMP].vt.sof_2 = buff[1];
             VT_info.vt_ctrl[TEMP].vt.ch_right_x =((buff[2] | (buff[3] << 8)) & 0x07ff) - VT_CH_VALUE_OFFSET;                             //通道0
@@ -142,6 +147,7 @@ static void VTRxCallback()
 {
     DaemonReload(VT_daemon);
     VTJudgeReadData(VT_usart_instance->recv_buff);
+    //FLAG_CRC++;
 }
 // 裁判系统丢失回调函数,重新初始化裁判系统串口
 static void VTLostCallback(void *arg)

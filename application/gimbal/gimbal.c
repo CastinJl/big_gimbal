@@ -36,7 +36,7 @@ static float vision_kv = 1.0f;
 
 // --- 系统辨识配置宏 ---
 //#define SYS_ID_MODE_ON  1       // 1: 开启辨识模式, 0: 关闭(正常运行)
-#define SYS_ID_AMP      50.0f   // 激励振幅 (单位: dps 或 rad/s，根据你的底层单位决定，这里假设是 rpm 或 dps，请根据电机响应调整，不要太大)
+#define SYS_ID_AMP      1.0f   // 激励振幅 (单位: dps 或 rad/s，根据你的底层单位决定，这里假设是 rpm 或 dps，请根据电机响应调整，不要太大)
 #define SYS_ID_MIN_FREQ 1.0f    // 起始频率 1Hz
 #define SYS_ID_MAX_FREQ 30.0f   // 终止频率 20Hz (注意：教程说500Hz，但实际云台机械带宽通常只有10-30Hz，扫到500Hz极易损坏电机或结构，建议先测到20-50Hz)
 #define SYS_ID_DURATION 10.0f   // 扫频持续时间 10秒
@@ -145,7 +145,7 @@ void GimbalInit() {
                     .feedforward_flag = SPEED_FEEDFORWARD,
             },
             .motor_type = DM4310,
-            .DM_P_MAX = 3.14f,
+            .DM_P_MAX = 3.14159,
             .DM_V_MAX = 30,
             .DM_T_MAX = 10
     };
@@ -310,7 +310,7 @@ void GimbalTask() {
     // 根据IMU姿态/pitch电机角度反馈计算出当前配重下的重力矩
     // ...
 
-    yaw_speed_feedforward  -= gimbal_cmd_recv.real_wz * 180 / PI;
+    //yaw_speed_feedforward  -= gimbal_cmd_recv.real_wz * 180 / PI;
     theta = gimba_IMU_data->Pitch/180*PI;
     if (theta>0.4) {//0.6
         gravity_current = 0.1f;

@@ -32,9 +32,9 @@ uint8_t UI_Seq;                                      // 包序号，供整个ref
 static void DeterminRobotID()
 {
     // id小于7是红色,大于7是蓝色   #define Robot_Red 0    #define Robot_Blue 1
-    referee_recv_info->referee_id.Robot_Color = referee_recv_info->GameRobotState.robot_id > 7 ? Robot_Blue : Robot_Red;
-    referee_recv_info->referee_id.Robot_ID = referee_recv_info->GameRobotState.robot_id;
-    referee_recv_info->referee_id.Cilent_ID = 0x0100 + referee_recv_info->referee_id.Robot_ID; // 计算客户端ID
+    referee_recv_info->referee_id.Robot_Color = Robot_Red;
+    referee_recv_info->referee_id.Robot_ID = 3;
+    referee_recv_info->referee_id.Cilent_ID = 0x0100 + 3; // 计算客户端ID
     referee_recv_info->referee_id.Receiver_Robot_ID = 0;
 }
 
@@ -74,7 +74,13 @@ static Graph_Data_t UI_Dynamic_Numbers[1]; // Bullet Num
 static Graph_Data_t UI_Dynamic_HitLines[4];
 static uint8_t beat_direction_continuous_cnt[4] = {0}; // 四个方向
 
-
+static Graph_Data_t UI_shoot_line[10]; // 射击准线
+static Graph_Data_t UI_shoot_yuan[2];  // 射击圆心
+static Graph_Data_t UI_Energy[6];      // 电容能量条
+static String_Data_t UI_State_sta[7];  // 机器人状态,静态只需画一次
+static String_Data_t UI_State_dyn[7];  // 机器人状态,动态先add才能change
+static uint32_t shoot_line_location[10] = {540, 960, 490, 515, 565};
+static String_Data_t UI_prompt_sta[3];  // 操作手提示
 
 void MyUIInit()
 {
@@ -83,26 +89,16 @@ void MyUIInit()
     // while (referee_recv_info->GameRobotState.robot_id == 0)
     //     osDelay(100); // 若还未收到裁判系统数据,等待一段时间后再检查
 
-    //DeterminRobotID();                                            // 确定ui要发送到的目标客户端
+    DeterminRobotID();                                            // 确定ui要发送到的目标客户端
     UIDelete(&referee_recv_info->referee_id, UI_Data_Del_ALL, 0); // 清空UI
 
-    // 静态   状态文字   name取前三个字母即可
-    UICharDraw(&UI_Static_Texts[0], "fri", UI_Graph_ADD, 0, UI_Color_Cyan, 25, 3, 450, 590, "FRIC");
-    UICharRefresh(&referee_recv_info->referee_id, UI_Static_Texts[0]);
-    UICharDraw(&UI_Static_Texts[1], "aut", UI_Graph_ADD, 0, UI_Color_Cyan, 20, 2, 265, 865, "AUTOAIM");
-    UICharRefresh(&referee_recv_info->referee_id, UI_Static_Texts[1]);
-    UICharDraw(&UI_Static_Texts[2], "sin", UI_Graph_ADD, 0, UI_Color_Cyan, 20, 2, 521, 865, "SINGLE");
-    UICharRefresh(&referee_recv_info->referee_id, UI_Static_Texts[2]);
-    UICharDraw(&UI_Static_Texts[3], "con", UI_Graph_ADD, 0, UI_Color_Cyan, 20, 2, 705, 865, "CONTINUE");
-    UICharRefresh(&referee_recv_info->referee_id, UI_Static_Texts[3]);
-    UICharDraw(&UI_Static_Texts[4], "fol", UI_Graph_ADD, 0, UI_Color_Cyan, 20, 2, 1098, 865, "FOLLOW");
-    UICharRefresh(&referee_recv_info->referee_id, UI_Static_Texts[4]);
-    UICharDraw(&UI_Static_Texts[5], "spi", UI_Graph_ADD, 0, UI_Color_Cyan, 20, 2, 1265, 865, "SPIN");
-    UICharRefresh(&referee_recv_info->referee_id, UI_Static_Texts[5]);
-    UICharDraw(&UI_Static_Texts[6], "bul", UI_Graph_ADD, 0, UI_Color_Cyan, 20, 2, 1450, 865, "BULLET");
-    UICharRefresh(&referee_recv_info->referee_id, UI_Static_Texts[6]);
-    UICharDraw(&UI_Static_Texts[7], "cap", UI_Graph_ADD, 0, UI_Color_Cyan, 20, 2, 940, 169, "CAP");
-    UICharRefresh(&referee_recv_info->referee_id, UI_Static_Texts[7]);
+    // 绘制发射基准线和基准圆
+    UILineDraw(&UI_shoot_line[0], "sl0", UI_Graph_ADD, 7, UI_Color_White, 3, 710, shoot_line_location[0], 1210, shoot_line_location[0]);
+    UILineDraw(&UI_shoot_line[1], "sl1", UI_Graph_ADD, 7, UI_Color_White, 3, shoot_line_location[1], 340, shoot_line_location[1], 740);
+    UILineDraw(&UI_shoot_line[2], "sl2", UI_Graph_ADD, 7, UI_Color_Yellow, 2, 810, shoot_line_location[2], 1110, shoot_line_location[2]);
+    UILineDraw(&UI_shoot_line[3], "sl3", UI_Graph_ADD, 7, UI_Color_Orange, 2, 960, 200, 960, 600);
+    UICircleDraw(&UI_shoot_yuan[0],"sy0",UI_Graph_ADD,7,UI_Color_Yellow,2,960,540,80);
+    UIGraphRefresh(&referee_recv_info->referee_id, 5, UI_shoot_line[0], UI_shoot_line[1], UI_shoot_line[2], UI_shoot_line[3],UI_shoot_yuan[0]);
 
     // 静态图形
     // bll  bottom_line_left   blr  bottom_line_right  前进轨迹线

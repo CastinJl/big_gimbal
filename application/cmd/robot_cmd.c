@@ -198,12 +198,12 @@ static void Gimbal_Test_Signal_Generator(void) {
 
 static void CalcOffsetAngle() {
     // 别名angle提高可读性
-    static float angle;
-    //angle = gimbal_fetch_data.yaw_motor_single_round_angle; // 从云台获取的当前yaw电机单圈角度
-    angle = gimbal_fetch_data.yaw_motor_single_round_angle; // 从云台获取的当前yaw电机单圈角度
+    // static float angle;
+    // //angle = gimbal_fetch_data.yaw_motor_single_round_angle; // 从云台获取的当前yaw电机单圈角度
+    // angle = gimbal_fetch_data.yaw_motor_single_round_angle; // 从云台获取的当前yaw电机单圈角度
 
     // 计算偏移角度
-    float offset = angle - YAW_CHASSIS_ALIGN_RAD;
+    float offset = gimbal_fetch_data.yaw_motor_single_round_angle/3.14159*PI - YAW_CHASSIS_ALIGN_RAD;
     //float offset = angle - (1.2474);
 
     // 将偏移角度归一化到 [-180, 180] 度之间
