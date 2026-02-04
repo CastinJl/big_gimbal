@@ -916,7 +916,7 @@ static void VTMouseKeySet()
     //粗调
 
     uint8_t key_s, key_w, key_a, key_d;
-    if (abs(referee_VT_data->vt_ctrl[TEMP].key[KEY_PRESS].a))
+    if (referee_VT_data->RemoteControl.keyboard_value & 0b0100)
     {
         key_a = 1;
     }
@@ -924,7 +924,7 @@ static void VTMouseKeySet()
     {
         key_a = 0;
     }
-    if (abs(referee_VT_data->vt_ctrl[TEMP].key[KEY_PRESS].d))
+    if (referee_VT_data->RemoteControl.keyboard_value & 0b1000)
     {
         key_d = 1;
     }
@@ -932,7 +932,7 @@ static void VTMouseKeySet()
     {
         key_d = 0;
     }
-    if (abs(referee_VT_data->vt_ctrl[TEMP].key[KEY_PRESS].w))
+    if (referee_VT_data->RemoteControl.keyboard_value & 0b0001)
     {
         key_w = 1;
     }
@@ -940,7 +940,7 @@ static void VTMouseKeySet()
     {
         key_w = 0;
     }
-    if (abs(referee_VT_data->vt_ctrl[TEMP].key[KEY_PRESS].s))
+    if (referee_VT_data->RemoteControl.keyboard_value & 0b0010)
     {
         key_s = 1;
     }
@@ -948,11 +948,12 @@ static void VTMouseKeySet()
     {
         key_s = 0;
     }
-    chassis_cmd_send.vx = (float) key_w * 5.0f - (float) key_s * 5.0f; // 系数待测
-    chassis_cmd_send.vy = (float) key_d * 5.0f - (float) key_a * 5.0f;
+    //chassis_cmd_send.vx = (float)
+    chassis_cmd_send.vx = (float) key_w * 3.0f - (float) key_s * 3.0f; // 系数待测
+    chassis_cmd_send.vy = (float) key_d * 3.0f - (float) key_a * 3.0f;
 
-    gimbal_cmd_send.yaw -= (float) referee_VT_data->vt_ctrl[TEMP].mouse.x / 660 * 4; // 系数待测
-    gimbal_cmd_send.pitch += (float) referee_VT_data->vt_ctrl[TEMP].mouse.y / 660 * 6;
+    gimbal_cmd_send.yaw -= (float) referee_VT_data->RemoteControl.mouse_x / 660 * 4; // 系数待测
+    gimbal_cmd_send.pitch += (float) referee_VT_data->RemoteControl.mouse_y / 660 * 6;
     if (gimbal_cmd_send.pitch >= PITCH_MAX_ANGLE)
         gimbal_cmd_send.pitch = PITCH_MAX_ANGLE;
     if (gimbal_cmd_send.pitch <= PITCH_MIN_ANGLE)
@@ -1075,7 +1076,7 @@ static void VTMouseKeySet()
     {
     case 0:
         chassis_cmd_send.chassis_mode = CHASSIS_FOLLOW_GIMBAL_YAW;
-        gimbal_cmd_send.gimbal_mode = GIMBAL_FREE_MODE;
+        gimbal_cmd_send.gimbal_mode = GIMBAL_GYRO_MODE;
         break;
     case 1:
         chassis_cmd_send.chassis_mode = CHASSIS_ROTATE;
@@ -1223,7 +1224,7 @@ void RobotCMDTask() {
                 RemoteControlSet();
             else if (switch_is_up(rc_data[TEMP].rc.switch_left) &&
                      switch_is_mid(rc_data[TEMP].rc.switch_right)) // 遥控器左侧开关状态为[上],键盘控制,遥控器右侧开关状态为[中],遥控器通道
-                MouseKeySet();
+                VTMouseKeySet();
         }
         // if(referee_VT_data->vt_ctrl[TEMP].vt.mode_sw == 1)
         // {
