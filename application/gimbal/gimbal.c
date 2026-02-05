@@ -26,19 +26,19 @@ static float yaw_current = 0;
 float yaw_speed_feedforward,yaw_feedforward;
 float pitch_set,pitch_get,yaw_set;
 static float theta;
+static float sys_id_target_speed;
 uint32_t motor_model_count;
 
 static float last_yaw_ref = 0;
 static float dt = 0.001f; // 任务运行周期1ms，也可用 DWT 获取真实 dt
 static float vision_kv = 1.0f;
 
-#include <math.h> // 必须包含 math.h 以使用 sinf 和 PI
 
 // --- 系统辨识配置宏 ---
-//#define SYS_ID_MODE_ON  1       // 1: 开启辨识模式, 0: 关闭(正常运行)
+#define SYS_ID_MODE_ON  0       // 1: 开启辨识模式, 0: 关闭(正常运行)
 #define SYS_ID_AMP      1.0f   // 激励振幅 (单位: dps 或 rad/s，根据你的底层单位决定，这里假设是 rpm 或 dps，请根据电机响应调整，不要太大)
 #define SYS_ID_MIN_FREQ 1.0f    // 起始频率 1Hz
-#define SYS_ID_MAX_FREQ 30.0f   // 终止频率 20Hz (注意：教程说500Hz，但实际云台机械带宽通常只有10-30Hz，扫到500Hz极易损坏电机或结构，建议先测到20-50Hz)
+#define SYS_ID_MAX_FREQ 50.0f   // 终止频率 20Hz (注意：教程说500Hz，但实际云台机械带宽通常只有10-30Hz，扫到500Hz极易损坏电机或结构，建议先测到20-50Hz)
 #define SYS_ID_DURATION 10.0f   // 扫频持续时间 10秒
 
 // 系统辨识全局变量
@@ -138,7 +138,7 @@ void GimbalInit() {
                     .angle_feedback_source = OTHER_FEED,
                     .speed_feedback_source = OTHER_FEED,
                     .outer_loop_type = ANGLE_LOOP,
-                    .close_loop_type = SPEED_LOOP | ANGLE_LOOP,
+                    .close_loop_type = ANGLE_LOOP | SPEED_LOOP ,
                     // .outer_loop_type = SPEED_LOOP,
                     // .close_loop_type = SPEED_LOOP,
                     .motor_reverse_flag = MOTOR_DIRECTION_NORMAL,
@@ -259,7 +259,7 @@ void GimbalTask() {
             }
             //yaw_target_speed = Yaw_FF_Filter(yaw_target_speed);   //速度前馈滤波，代价是响应速度
             // 速度前馈
-            yaw_speed_feedforward = chassis_comp_speed + (yaw_target_speed * vision_kv);
+            yaw_speed_feedforward = yaw_target_speed * vision_kv;
             DMMotorSetRef(yaw_motor, gimbal_cmd_recv.yaw); // yaw和pitch会在robot_cmd中处理好多圈和单圈
             pitch_get = gimba_IMU_data->Pitch;
             // if (motor_model_count > 50) {
@@ -271,18 +271,18 @@ void GimbalTask() {
             //DMMotorSetRef(pitch_motor,pitch_set);
             // // DMMotorSetRef(pitch_motor,5);
             // roll_get = gimba_IMU_data->Roll;
+
+
+            #if SYS_ID_MODE_ON
+                        // --- 系统辨识模式 ---
+                        DMMotorEnable(yaw_motor);
+                        DMMotorEnable(pitch_motor);
+                        //生成激励信号
+                        sys_id_target_speed = Gimbal_SysID_Generate_Chirp(dt);
+                        DMMotorSetRef(yaw_motor, sys_id_target_speed);
+                        DMMotorSetRef(pitch_motor, 0); // Pitch 保持 0
+            #endif
             break;
-
-// #if SYS_ID_MODE_ON
-//             // --- 系统辨识模式 ---
-//             DMMotorEnable(yaw_motor);
-//             DMMotorEnable(pitch_motor);
-//             //生成激励信号
-//             sys_id_target_speed = Gimbal_SysID_Generate_Chirp(dt);
-//             DMMotorSetRef(yaw_motor, sys_id_target_speed);
-//             DMMotorSetRef(pitch_motor, 0); // Pitch 保持 0
-// #endif
-
 
 
             // 云台自由模式,使用编码器反馈,底盘和云台分离,仅云台旋转,一般用于调整云台姿态(英雄吊射等)/能量机关,

@@ -124,6 +124,8 @@ void RobotCMDInit() {
     };
 
     cmd_can_comm = CANCommInit(&comm_conf);
+
+
 #endif // GIMBAL_BOARD
     gimbal_cmd_send.pitch = 0;
 
