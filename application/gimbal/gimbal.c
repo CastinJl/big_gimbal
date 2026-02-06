@@ -34,84 +34,84 @@ static float dt = 0.001f; // 任务运行周期1ms，也可用 DWT 获取真实 
 static float vision_kv = 1.0f;
 
 
-#include <math.h>
-
-// // --- 系统辨识配置宏 ---
-// #define SYS_ID_MODE_ON      1
-// #define SYS_ID_MIN_FREQ     0.5f    // 起始频率
-// #define SYS_ID_MAX_FREQ     200.0f  // 终止频率 (建议拉高到200Hz)
-// #define SYS_ID_DURATION     60.0f   // 扫频时间
-//
-// // --- 幅值配置 (自动渐变) ---
-// #define SYS_ID_START_AMP    1.5f    // 低频时的幅值 (小一点，安全)
-// #define SYS_ID_END_AMP      4.0f    // 高频时的幅值 (大一点，抗噪)
-//
-// static float sys_id_time = 0.0f;
-//
-// float Gimbal_SysID_Generate_Chirp(float dt) {
-//     // 1. 超时检测
-//     if (sys_id_time > SYS_ID_DURATION) {
-//         return 0.0f; // 扫频结束，输出0
-//     }
-//
-//     // --- 计算当前时刻的进度 (0.0 ~ 1.0) ---
-//     float progress = sys_id_time / SYS_ID_DURATION;
-//
-//     // --- A. 计算动态幅值 (关键改进) ---
-//     // 幅值随时间线性增加: Amp(t) = Start + (End - Start) * progress
-//     float current_amp = SYS_ID_START_AMP + (SYS_ID_END_AMP - SYS_ID_START_AMP) * progress;
-//
-//     // --- B. 计算当前相位 ---
-//     // 线性频率增长率 k
-//     float k = (SYS_ID_MAX_FREQ - SYS_ID_MIN_FREQ) / SYS_ID_DURATION;
-//
-//     // 累计相位公式: phase = 2*pi * (f_start * t + 0.5 * k * t^2)
-//     float phase_accum = 2.0f * PI * (SYS_ID_MIN_FREQ * sys_id_time + 0.5f * k * sys_id_time * sys_id_time);
-//
-//     // 对 2*PI 取模，防止 float 精度溢出 (一定要加这个!)
-//     float phase_wrapped = fmodf(phase_accum, 2.0f * PI);
-//
-//     // --- C. 生成正弦波 ---
-//     float output = current_amp * arm_sin_f32(phase_wrapped);
-//
-//     // 更新时间
-//     sys_id_time += dt;
-//     return output;
-// }
-
+//#include <math.h>
 
 // --- 系统辨识配置宏 ---
-#define SYS_ID_MODE_ON  1
-#define SYS_ID_AMP      3.0f    // 尝试加大一点，或者分段测试
-#define SYS_ID_MIN_FREQ 0.5f    // 稍微降低起点，获取更好的直流特性
-#define SYS_ID_MAX_FREQ 200.0f  // 【关键】提升到 200Hz，捕捉高频极点
-#define SYS_ID_DURATION 60.0f   // 拉长时间，保证扫频够慢，减少瞬态影响
+#define SYS_ID_MODE_ON      1
+#define SYS_ID_MIN_FREQ     0.5f    // 起始频率
+#define SYS_ID_MAX_FREQ     100.0f  // 终止频率 (建议拉高到200Hz)
+#define SYS_ID_DURATION     60.0f   // 扫频时间
+
+// --- 幅值配置 (自动渐变) ---
+#define SYS_ID_START_AMP    1.0f    // 低频时的幅值 (小一点，安全)
+#define SYS_ID_END_AMP      5.0f    // 高频时的幅值 (大一点，抗噪)
 
 static float sys_id_time = 0.0f;
 
 float Gimbal_SysID_Generate_Chirp(float dt) {
+    // 1. 超时检测
     if (sys_id_time > SYS_ID_DURATION) {
-        return 0.0f;
+        return 0.0f; // 扫频结束，输出0
     }
 
-    // 1. 计算当前的瞬时频率 (Linear Chirp)
-    // f(t) = f_start + k * t
+    // --- 计算当前时刻的进度 (0.0 ~ 1.0) ---
+    float progress = sys_id_time / SYS_ID_DURATION;
+
+    // --- A. 计算动态幅值 (关键改进) ---
+    // 幅值随时间线性增加: Amp(t) = Start + (End - Start) * progress
+    float current_amp = SYS_ID_START_AMP + (SYS_ID_END_AMP - SYS_ID_START_AMP) * progress;
+
+    // --- B. 计算当前相位 ---
+    // 线性频率增长率 k
     float k = (SYS_ID_MAX_FREQ - SYS_ID_MIN_FREQ) / SYS_ID_DURATION;
 
-    // 2. 计算累计相位 (Phase = Integral of 2*pi*f(t) dt)
-    // 公式: phase = 2*pi * (f_start * t + 0.5 * k * t^2)
+    // 累计相位公式: phase = 2*pi * (f_start * t + 0.5 * k * t^2)
     float phase_accum = 2.0f * PI * (SYS_ID_MIN_FREQ * sys_id_time + 0.5f * k * sys_id_time * sys_id_time);
 
-    // 3. 【关键改进】对 2*PI 取模，防止 float 精度溢出导致波形畸变
-    // 注意：arm_sin_f32 通常接受弧度。如果用的是查表法，确保输入范围正确。
+    // 对 2*PI 取模，防止 float 精度溢出 (一定要加这个!)
     float phase_wrapped = fmodf(phase_accum, 2.0f * PI);
 
-    // 4. 生成输出
-    float output = SYS_ID_AMP * arm_sin_f32(phase_wrapped);
+    // --- C. 生成正弦波 ---
+    float output = current_amp * arm_sin_f32(phase_wrapped);
 
+    // 更新时间
     sys_id_time += dt;
     return output;
 }
+
+
+// // --- 系统辨识配置宏 ---
+// #define SYS_ID_MODE_ON  1
+// #define SYS_ID_AMP      2.0f    // 尝试加大一点，或者分段测试
+// #define SYS_ID_MIN_FREQ 0.5f    // 稍微降低起点，获取更好的直流特性
+// #define SYS_ID_MAX_FREQ 200.0f  // 【关键】提升到 200Hz，捕捉高频极点
+// #define SYS_ID_DURATION 60.0f   // 拉长时间，保证扫频够慢，减少瞬态影响
+//
+// static float sys_id_time = 0.0f;
+//
+// float Gimbal_SysID_Generate_Chirp(float dt) {
+//     if (sys_id_time > SYS_ID_DURATION) {
+//         return 0.0f;
+//     }
+//
+//     // 1. 计算当前的瞬时频率 (Linear Chirp)
+//     // f(t) = f_start + k * t
+//     float k = (SYS_ID_MAX_FREQ - SYS_ID_MIN_FREQ) / SYS_ID_DURATION;
+//
+//     // 2. 计算累计相位 (Phase = Integral of 2*pi*f(t) dt)
+//     // 公式: phase = 2*pi * (f_start * t + 0.5 * k * t^2)
+//     float phase_accum = 2.0f * PI * (SYS_ID_MIN_FREQ * sys_id_time + 0.5f * k * sys_id_time * sys_id_time);
+//
+//     // 3. 【关键改进】对 2*PI 取模，防止 float 精度溢出导致波形畸变
+//     // 注意：arm_sin_f32 通常接受弧度。如果用的是查表法，确保输入范围正确。
+//     float phase_wrapped = fmodf(phase_accum, 2.0f * PI);
+//
+//     // 4. 生成输出
+//     float output = SYS_ID_AMP * arm_sin_f32(phase_wrapped);
+//
+//     sys_id_time += dt;
+//     return output;
+// }
 
 
 float Yaw_FF_Filter(float input) {
