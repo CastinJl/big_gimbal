@@ -34,85 +34,39 @@ static float dt = 0.001f; // 任务运行周期1ms，也可用 DWT 获取真实 
 static float vision_kv = 1.0f;
 
 
-//#include <math.h>
-
 // --- 系统辨识配置宏 ---
-#define SYS_ID_MODE_ON      1
-#define SYS_ID_MIN_FREQ     0.5f    // 起始频率
-#define SYS_ID_MAX_FREQ     100.0f  // 终止频率 (建议拉高到200Hz)
-#define SYS_ID_DURATION     60.0f   // 扫频时间
+#define SYS_ID_MODE_ON  0       // 1: 开启辨识模式, 0: 关闭(正常运行)
+#define SYS_ID_AMP      1.5f   // 激励振幅 (单位: dps 或 rad/s，根据你的底层单位决定，这里假设是 rpm 或 dps，请根据电机响应调整，不要太大)
+#define SYS_ID_MIN_FREQ 1.0f    // 起始频率 1Hz
+#define SYS_ID_MAX_FREQ 50.0f   // 终止频率 20Hz (注意：教程说500Hz，但实际云台机械带宽通常只有10-30Hz，扫到500Hz极易损坏电机或结构，建议先测到20-50Hz)
+#define SYS_ID_DURATION 30.0f   // 扫频持续时间 10秒
 
-// --- 幅值配置 (自动渐变) ---
-#define SYS_ID_START_AMP    1.0f    // 低频时的幅值 (小一点，安全)
-#define SYS_ID_END_AMP      5.0f    // 高频时的幅值 (大一点，抗噪)
+// 系统辨识全局变量
+static float sys_id_tick = 0.0f;
 
-static float sys_id_time = 0.0f;
-
+/**
+ * @brief 生成线性扫频信号 (Chirp Signal)
+ * @param dt 控制周期 (秒)
+ * @return 当前时刻的激励值
+ */
 float Gimbal_SysID_Generate_Chirp(float dt) {
-    // 1. 超时检测
-    if (sys_id_time > SYS_ID_DURATION) {
-        return 0.0f; // 扫频结束，输出0
+    if (sys_id_tick > SYS_ID_DURATION) {
+        return 0.0f;
     }
 
-    // --- 计算当前时刻的进度 (0.0 ~ 1.0) ---
-    float progress = sys_id_time / SYS_ID_DURATION;
-
-    // --- A. 计算动态幅值 (关键改进) ---
-    // 幅值随时间线性增加: Amp(t) = Start + (End - Start) * progress
-    float current_amp = SYS_ID_START_AMP + (SYS_ID_END_AMP - SYS_ID_START_AMP) * progress;
-
-    // --- B. 计算当前相位 ---
-    // 线性频率增长率 k
+    // 线性频率增长公式: f(t) = f_start + (f_end - f_start) * (t / duration)
     float k = (SYS_ID_MAX_FREQ - SYS_ID_MIN_FREQ) / SYS_ID_DURATION;
+    float current_freq = SYS_ID_MIN_FREQ + k * sys_id_tick;
 
-    // 累计相位公式: phase = 2*pi * (f_start * t + 0.5 * k * t^2)
-    float phase_accum = 2.0f * PI * (SYS_ID_MIN_FREQ * sys_id_time + 0.5f * k * sys_id_time * sys_id_time);
+    // 激励信号: A * sin(2 * PI * f(t) * t) -> 注意：变频信号相位是频率的积分
+    // Phase = 2 * PI * (f_start * t + 0.5 * k * t^2)
+    float phase = 2.0f * PI * (SYS_ID_MIN_FREQ * sys_id_tick + 0.5f * k * sys_id_tick * sys_id_tick);
 
-    // 对 2*PI 取模，防止 float 精度溢出 (一定要加这个!)
-    float phase_wrapped = fmodf(phase_accum, 2.0f * PI);
+    float output = SYS_ID_AMP * arm_sin_f32(phase);
 
-    // --- C. 生成正弦波 ---
-    float output = current_amp * arm_sin_f32(phase_wrapped);
-
-    // 更新时间
-    sys_id_time += dt;
+    sys_id_tick += dt;
     return output;
 }
-
-
-// // --- 系统辨识配置宏 ---
-// #define SYS_ID_MODE_ON  1
-// #define SYS_ID_AMP      2.0f    // 尝试加大一点，或者分段测试
-// #define SYS_ID_MIN_FREQ 0.5f    // 稍微降低起点，获取更好的直流特性
-// #define SYS_ID_MAX_FREQ 200.0f  // 【关键】提升到 200Hz，捕捉高频极点
-// #define SYS_ID_DURATION 60.0f   // 拉长时间，保证扫频够慢，减少瞬态影响
-//
-// static float sys_id_time = 0.0f;
-//
-// float Gimbal_SysID_Generate_Chirp(float dt) {
-//     if (sys_id_time > SYS_ID_DURATION) {
-//         return 0.0f;
-//     }
-//
-//     // 1. 计算当前的瞬时频率 (Linear Chirp)
-//     // f(t) = f_start + k * t
-//     float k = (SYS_ID_MAX_FREQ - SYS_ID_MIN_FREQ) / SYS_ID_DURATION;
-//
-//     // 2. 计算累计相位 (Phase = Integral of 2*pi*f(t) dt)
-//     // 公式: phase = 2*pi * (f_start * t + 0.5 * k * t^2)
-//     float phase_accum = 2.0f * PI * (SYS_ID_MIN_FREQ * sys_id_time + 0.5f * k * sys_id_time * sys_id_time);
-//
-//     // 3. 【关键改进】对 2*PI 取模，防止 float 精度溢出导致波形畸变
-//     // 注意：arm_sin_f32 通常接受弧度。如果用的是查表法，确保输入范围正确。
-//     float phase_wrapped = fmodf(phase_accum, 2.0f * PI);
-//
-//     // 4. 生成输出
-//     float output = SYS_ID_AMP * arm_sin_f32(phase_wrapped);
-//
-//     sys_id_time += dt;
-//     return output;
-// }
-
 
 float Yaw_FF_Filter(float input) {
     // --- 调参区域 ---
@@ -153,7 +107,7 @@ void GimbalInit() {
             },
             .controller_param_init_config = {
                     .angle_PID = {
-                            .Kp = 30,//50//30
+                            .Kp = 50,//50//30
                             .Ki = 0.0f,//0
                             .Kd = 0.0f,//0.0f,//0.005f
                             .DeadBand = 0.0f,
@@ -166,8 +120,9 @@ void GimbalInit() {
                             .Kp = 2.2f,//10
                             .Ki = 0,
                             .Kd = 0.0f, //0.005f
-                            .Improve = PID_Integral_Limit | PID_Derivative_On_Measurement | PID_DerivativeFilter,                            .IntegralLimit = 10000,
-                            .MaxOut = 10,
+                            .Improve = PID_Integral_Limit | PID_Derivative_On_Measurement | PID_DerivativeFilter,
+                            .IntegralLimit = 5,
+                            .MaxOut = 10, //即输出扭矩TMAX，可通过达妙上位机读取或修改
                             .Derivative_LPF_RC = 0.0f
                            // .Output_LPF_RC = 0.003f
                     },
@@ -182,12 +137,12 @@ void GimbalInit() {
             .controller_setting_init_config = {
                     .angle_feedback_source = OTHER_FEED,
                     .speed_feedback_source = OTHER_FEED,
-                    // .outer_loop_type = ANGLE_LOOP,
-                    // .close_loop_type = ANGLE_LOOP | SPEED_LOOP ,
-                    // .outer_loop_type = CURRENT_LOOP,
-                    .close_loop_type = CURRENT_LOOP,
+                    .outer_loop_type = ANGLE_LOOP,
+                    .close_loop_type = ANGLE_LOOP | SPEED_LOOP ,
+                    // .outer_loop_type = SPEED_LOOP,
+                    // .close_loop_type = SPEED_LOOP,
                     .motor_reverse_flag = MOTOR_DIRECTION_NORMAL,
-                    //.feedforward_flag = SPEED_FEEDFORWARD,
+                    .feedforward_flag = SPEED_FEEDFORWARD,
             },
             .motor_type = DM4310,
             .DM_P_MAX = 3.14159,
@@ -291,31 +246,31 @@ void GimbalTask() {
             break;
             // 使用陀螺仪的反馈,底盘根据yaw电机的offset跟随云台或视觉模式采用
         case GIMBAL_GYRO_MODE: // 后续只保留此模式
-            // DMMotorEnable(yaw_motor);
-            // DMMotorEnable(pitch_motor);
-            // float yaw_target_speed = (gimbal_cmd_recv.yaw - last_yaw_ref) * PI / 180 / dt;
-            // last_yaw_ref = gimbal_cmd_recv.yaw;
-            // float chassis_comp_speed = -gimbal_cmd_recv.real_wz;
-            // //速度前馈限幅
-            // if (yaw_target_speed > MAX_FF_SPEED_RAD) {
-            //     yaw_target_speed = MAX_FF_SPEED_RAD;
-            // } else if (yaw_target_speed < -MAX_FF_SPEED_RAD) {
-            //     yaw_target_speed = -MAX_FF_SPEED_RAD;
+            DMMotorEnable(yaw_motor);
+            DMMotorEnable(pitch_motor);
+            float yaw_target_speed = (gimbal_cmd_recv.yaw - last_yaw_ref) * PI / 180 / dt;
+            last_yaw_ref = gimbal_cmd_recv.yaw;
+            float chassis_comp_speed = -gimbal_cmd_recv.real_wz;
+            //速度前馈限幅
+            if (yaw_target_speed > MAX_FF_SPEED_RAD) {
+                yaw_target_speed = MAX_FF_SPEED_RAD;
+            } else if (yaw_target_speed < -MAX_FF_SPEED_RAD) {
+                yaw_target_speed = -MAX_FF_SPEED_RAD;
+            }
+            //yaw_target_speed = Yaw_FF_Filter(yaw_target_speed);   //速度前馈滤波，代价是响应速度
+            // 速度前馈
+            yaw_speed_feedforward = yaw_target_speed * vision_kv;
+            DMMotorSetRef(yaw_motor, gimbal_cmd_recv.yaw); // yaw和pitch会在robot_cmd中处理好多圈和单圈
+            pitch_get = gimba_IMU_data->Pitch;
+            // if (motor_model_count > 50) {
+            //     motor_model_count = 0;
+            //     pitch_set = generate_angle_setpoint();
             // }
-            // //yaw_target_speed = Yaw_FF_Filter(yaw_target_speed);   //速度前馈滤波，代价是响应速度
-            // // 速度前馈
-            // yaw_speed_feedforward = yaw_target_speed * vision_kv;
-            // DMMotorSetRef(yaw_motor, gimbal_cmd_recv.yaw); // yaw和pitch会在robot_cmd中处理好多圈和单圈
-            // pitch_get = gimba_IMU_data->Pitch;
-            // // if (motor_model_count > 50) {
-            // //     motor_model_count = 0;
-            // //     pitch_set = generate_angle_setpoint();
-            // // }
-            // // motor_model_count++;
-            // DMMotorSetRef(pitch_motor,gimbal_cmd_recv.pitch);
-            // //DMMotorSetRef(pitch_motor,pitch_set);
-            // // // DMMotorSetRef(pitch_motor,5);
-            // // roll_get = gimba_IMU_data->Roll;
+            // motor_model_count++;
+            DMMotorSetRef(pitch_motor,gimbal_cmd_recv.pitch);
+            //DMMotorSetRef(pitch_motor,pitch_set);
+            // // DMMotorSetRef(pitch_motor,5);
+            // roll_get = gimba_IMU_data->Roll;
 
 
             #if SYS_ID_MODE_ON

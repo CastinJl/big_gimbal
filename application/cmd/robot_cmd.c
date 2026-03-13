@@ -918,7 +918,7 @@ static void VTMouseKeySet()
     //粗调
 
     uint8_t key_s, key_w, key_a, key_d;
-    if (referee_VT_data->RemoteControl.keyboard_value & 0b0100)
+    if (abs(referee_VT_data->vt_ctrl[TEMP].key[KEY_PRESS].a))
     {
         key_a = 1;
     }
@@ -926,7 +926,7 @@ static void VTMouseKeySet()
     {
         key_a = 0;
     }
-    if (referee_VT_data->RemoteControl.keyboard_value & 0b1000)
+    if (abs(referee_VT_data->vt_ctrl[TEMP].key[KEY_PRESS].d))
     {
         key_d = 1;
     }
@@ -934,7 +934,7 @@ static void VTMouseKeySet()
     {
         key_d = 0;
     }
-    if (referee_VT_data->RemoteControl.keyboard_value & 0b0001)
+    if (abs(referee_VT_data->vt_ctrl[TEMP].key[KEY_PRESS].w))
     {
         key_w = 1;
     }
@@ -942,7 +942,7 @@ static void VTMouseKeySet()
     {
         key_w = 0;
     }
-    if (referee_VT_data->RemoteControl.keyboard_value & 0b0010)
+    if (abs(referee_VT_data->vt_ctrl[TEMP].key[KEY_PRESS].s))
     {
         key_s = 1;
     }
@@ -954,8 +954,8 @@ static void VTMouseKeySet()
     chassis_cmd_send.vx = (float) key_w * 3.0f - (float) key_s * 3.0f; // 系数待测
     chassis_cmd_send.vy = (float) key_d * 3.0f - (float) key_a * 3.0f;
 
-    gimbal_cmd_send.yaw -= (float) referee_VT_data->RemoteControl.mouse_x / 660 * 4; // 系数待测
-    gimbal_cmd_send.pitch += (float) referee_VT_data->RemoteControl.mouse_y / 660 * 6;
+    gimbal_cmd_send.yaw -= (float) referee_VT_data->vt_ctrl[TEMP].mouse.x / 660 * 4; // 系数待测
+    gimbal_cmd_send.pitch += (float) referee_VT_data->vt_ctrl[TEMP].mouse.y / 660 * 6;
     if (gimbal_cmd_send.pitch >= PITCH_MAX_ANGLE)
         gimbal_cmd_send.pitch = PITCH_MAX_ANGLE;
     if (gimbal_cmd_send.pitch <= PITCH_MIN_ANGLE)
@@ -1053,7 +1053,7 @@ static void VTMouseKeySet()
         chassis_cmd_send.friction_mode = FRICTION_ON;
         break;
     }
-    switch (referee_VT_data->vt_ctrl[TEMP].key_count[KEY_PRESS][Key_G] % 2) // G键开关摩擦轮
+    switch (referee_VT_data->vt_ctrl[TEMP].key_count[KEY_PRESS][Key_Q] % 2) // Q键开关热控
     {
     case 0:
        shoot_cmd_send.heat_mode = HEAT_OPEN;

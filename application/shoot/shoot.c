@@ -34,50 +34,7 @@ float speed_loader_set = 8;
 static HeatControl_t heat_control;
 float shoot_speed;
 float ref_speed = 1000.0f,fan_speed = 12.0f,fan_time=50;
-// 热量检测实例（带初始校准阈值）
-static float current_q_buf[CURRENT_QUEUE_SIZE];
-static HeatDetector heat_detector = {
-        .state = ST_CLOSE,
-        .q_threshold = 26.0f
-};
-static void Queue_Init(CurrentQueue* q, float* buf, int size) {
-    q->buf = buf;
-    q->cap = size;
-    q->front = q->size = 0;
-    q->rear = -1;
-}
 
-// 元素入队
-static void Queue_Push(CurrentQueue* q, float val) {
-    if (q->size >= q->cap) return;
-    q->rear = (q->rear + 1) % q->cap;
-    q->buf[q->rear] = val;
-    q->size++;
-}
-
-// 元素出队
-static void Queue_Pop(CurrentQueue* q) {
-    if (q->size <= 0) return;
-    q->front = (q->front + 1) % q->cap;
-    q->size--;
-}
-
-// 获取队首元素
-static float Queue_Front(CurrentQueue* q) {
-    return q->size ? q->buf[q->front] : 0.0f;
-}
-
-// 清空队列
-static void Queue_Clear(CurrentQueue* q) {
-    q->front = q->size = 0;
-    q->rear = -1;
-}
-void HeatControl_Init() {
-    heat_control.heat_per_bullet = 10.0f;
-    heat_control.current_heat = 0;
-    heat_control.last_heat_time = DWT_GetTimeline_ms();
-    heat_control.overheat_flag = 0;
-}
 
 void ShootInit()
 {
@@ -165,98 +122,10 @@ void ShootInit()
     loader = DJIMotorInit(&loader_config);
     shoot_pub = PubRegister("shoot_feed", sizeof(Shoot_Upload_Data_s));
     shoot_sub = SubRegister("shoot_cmd", sizeof(Shoot_Ctrl_Cmd_s));
-    Queue_Init(&heat_detector.current_q, current_q_buf, CURRENT_QUEUE_SIZE);
-    HeatControl_Init();
-    // Servo_Init_Config_s lid_config = {
-    //         .htim = &htim1,
-    //         .Channel = TIM_CHANNEL_1,
-    //         .Servo_type = Servo180,
-    //         .Servo_Angle_Type = Free_Angle_mode,
-    // };
-    //
-    // lid = ServoInit(&lid_config);
 
-    //    SPI_Init_Config_s rgb_config = {
-    //           .spi_handle = ;
-    //           .GPIOx = GPIOx;
-    //           .cs_pin = cs_pin;
-    //           .spi_work_mode = spi_work_mode;
-    //           .callback = callback;
-    //           .id = 1;
-    //    }
 }
 
 
-static void HeatDetector_Update(HeatDetector* hd,
-                                DJIMotorInstance* left,
-                                DJIMotorInstance* right,
-                                float cooling_rate)
-{
-    switch (hd->state) {
-    case ST_CLOSE:
-        // 开机条件：双电机使能+转速达标
-        if (left->stop_flag == MOTOR_ENALBED &&
-            right->stop_flag == MOTOR_ENALBED &&
-            left->motor_controller.pid_ref > 0 &&
-            right->motor_controller.pid_ref > 0 &&
-            fabsf(left->measure.speed_aps) >= 0.95f * fabsf(left->motor_controller.pid_ref) &&
-            fabsf(right->measure.speed_aps) >= 0.95f * fabsf(right->motor_controller.pid_ref))
-        {
-            hd->state = ST_OPEN;
-            Queue_Clear(&hd->current_q);
-            hd->q_sum = 0;
-            hd->last_q_sum = 0;  // 状态切换时重置历史值
-        }
-        break;
-
-    case ST_OPEN: {
-        /* 关键修改点1：先保存上次队列总和 */
-        float previous_sum = hd->last_q_sum;  // 保存进入时的历史值
-
-        /* 关键修改点2：在队列操作前更新last_q_sum */
-        hd->last_q_sum = hd->q_sum;  // 当前值将成为下次的历史值
-
-        // 1. 计算电流差值并更新队列
-        float current_diff = left->measure.real_current * 20 / 16384 - right->measure.real_current * 20 / 16384;
-        Queue_Push(&hd->current_q, current_diff);
-        hd->q_sum += current_diff;
-
-        // 2. 维护队列长度
-        if (hd->current_q.size > CURRENT_QUEUE_SIZE) {
-            hd->q_sum -= Queue_Front(&hd->current_q);
-            Queue_Pop(&hd->current_q);
-
-            /* 关键修改点3：调整历史值避免负误差 */
-            // previous_sum = (previous_sum > removed) ? (previous_sum - removed) : 0;
-        }
-
-        // 3. 子弹发射检测（核心逻辑）
-        if (hd->q_sum > hd->q_threshold) {
-            Queue_Clear(&hd->current_q);
-            hd->q_sum = 0;
-            hd->now_heat += HEAT_PER_BULLET;
-            hd->total_ammo++;
-
-            /* 可选：动态阈值调整 */
-            // hd->q_threshold *= 1.05f;  // 适当提高阈值避免连发误判
-        }
-
-        // 4. 热量冷却
-        hd->now_heat = fmaxf(hd->now_heat - cooling_rate * COOLING_RATE_SCALE, 0);
-
-        // 5. 关机条件
-        if ((left->stop_flag == MOTOR_STOP && right->stop_flag == MOTOR_STOP) ||
-            (fabsf(left->motor_controller.pid_ref) < 1e-6 &&
-             fabsf(right->motor_controller.pid_ref) < 1e-6))
-        {
-            hd->state = ST_CLOSE;
-            hd->now_heat = 0;
-            hd->last_q_sum = 0;  // 状态切换时重置
-        }
-        break;
-    }
-    } // end switch
-}
 //卡弹检测
 void stalled_detect()
 {
@@ -284,133 +153,19 @@ void stalled_detect()
         last_detect_time = DWT_GetTimeline_ms();
     }
 }
-void HeatControl_Update() {
-    float current_time = DWT_GetTimeline_ms();
-    float delta_time = (current_time - heat_control.last_heat_time) / 1000.0f; // 转换为秒
-    heat_control.current_heat = heat_detector.now_heat;
-    // 热量冷却
-    heat_control.current_heat = fmaxf(heat_control.current_heat - heat_control.cooling_rate * delta_time, 0);
-
-    // 更新射速限制
-    if (heat_control.current_heat > 0.9f * heat_control.heat_limit) {
-        heat_control.overheat_flag = 1;
-        // 超热时限制射速
-        heat_control.shoot_rate = heat_control.cooling_rate / heat_control.heat_per_bullet;
-    } else {
-        heat_control.overheat_flag = 0;
-    }
-
-    heat_control.last_heat_time = current_time;
-}
 
 
 
-//热量控制
-void Heat_control()
-{
-        // switch (shoot_cmd_recv.robot_level)
-        // {
-        // case 1:
-        //     heat_limit = 150;
-        //     break;
-        // case 2:
-        //     heat_limit = 200;
-        //     break;
-        // case 3:
-        //     heat_limit = 250;
-        //     break;
-        // case 4:
-        //     heat_limit = 350;
-        //     break;
-        // case 5:
-        //     heat_limit = 400;
-        //     break;
-        // case 6:
-        //     heat_limit = 450;
-        //     break;
-        // case 7:
-        //     heat_limit = 500;
-        //     break;
-        // case 8:
-        //     heat_limit = 550;
-        //     break;
-        // case 9:
-        //     heat_limit = 600;
-        //     break;
-        // case 10:
-        //     heat_limit = 650;
-        //     break;
-        // }
-    switch (shoot_cmd_recv.robot_level)
-    {
-    case 1:
-        // shoot_cmd_recv.shoot_rate = 30;
-        heat_limit = 30;
-        break;
-    case 2:
-        heat_limit = 65;
-        // shoot_cmd_recv.shoot_rate = 30;
-        break;
-    case 3:
-        heat_limit = 95;
-        break;
-    case 4:
-        heat_limit = 155;
-        break;
-    case 5:
-        heat_limit = 190;
-        break;
-    case 6:
-        heat_limit = 225;
-        break;
-    case 7:
-        heat_limit = 260;
-        break;
-    case 8:
-        heat_limit = 295;
-        break;
-    case 9:
-        heat_limit = 330;
-        break;
-    case 10:
-        heat_limit = 400;
-        break;
-    }
-    if(shoot_cmd_recv.heat_mode == HEAT_OPEN)
-    {
-        if(shoot_cmd_recv.heat>=(0.8 * heat_limit))
-        {
-            DJIMotorStop(loader);
-        }
-        else
-        {
-            DJIMotorEnable(loader);
-        }
-    }
-    else if(shoot_cmd_recv.heat_mode == HEAT_CLOSE)
-    {
-        DJIMotorEnable(loader);
-    }
 
-    // if(shoot_cmd_recv.heat>=(0.9*heat_limit))
-   // {
-   //     DJIMotorStop(loader);
-   // }
-   // else
-   // {
-   //     DJIMotorEnable(loader);
-   // }
-}
+
 
 /* 机器人发射机构控制核心任务 */
 void ShootTask()
 {
     //从cmd获取控制数据
     SubGetMessage(shoot_sub, &shoot_cmd_recv);
-    HeatDetector_Update(&heat_detector, friction_l, friction_r, shoot_cmd_recv.heat_cool);
     heat_control.heat_limit = shoot_cmd_recv.heat_limit;
     heat_control.cooling_rate = shoot_cmd_recv.heat_cool;
-    HeatControl_Update();
     current_loader = loader->measure.real_current;
     speed_loader = loader->measure.speed_aps;
 
@@ -427,56 +182,81 @@ void ShootTask()
         DJIMotorEnable(friction_r);
         DJIMotorEnable(loader);
     }
-    float jc_speed;
-    // if(shoot_cmd_recv.aim_flag == 1)
-    // {
-    //     shoot_speed = 45.0f;
-    // }
-    // else
-    // {
-    //     shoot_speed = 25.0f;
-    // }
-        if(shoot_cmd_recv.aim_flag == 1)
-        {
-        if(shoot_cmd_recv.robot_level <= 5)
-        {
-            jc_speed = 40.0f;
-        }
-        else if(shoot_cmd_recv.robot_level > 5 && shoot_cmd_recv.robot_level <= 10)
-        {
-            jc_speed = 45.0f;
-        }
+    // ------------------- 热量与射速控制核心策略（预测+稳态算法） -------------------
+
+    // 用于记录连发的计时状态
+    static uint32_t burst_start_time = 0;
+    static uint8_t is_bursting = 0;
+    static float planned_burst_speed = 0.0f;
+    static uint32_t planned_burst_duration = 0;
+
+    // 获取机器人的极限机械射速限制 (原有逻辑保留，作为速度上限)
+    float max_mech_speed;
+    if(shoot_cmd_recv.aim_flag == 1) {
+        max_mech_speed = (shoot_cmd_recv.robot_level <= 5) ? 40.0f : 45.0f;
+    } else {
+        max_mech_speed = (shoot_cmd_recv.robot_level <= 1) ? 20.0f : 25.0f;
     }
-    else
+
+    if(shoot_cmd_recv.heat_mode == HEAT_OPEN && shoot_cmd_recv.loader_mode == LOAD_BURSTFIRE)
     {
-        if(shoot_cmd_recv.robot_level <= 1)
-        {
-            jc_speed = 20.0f;
-        }
-        else if(shoot_cmd_recv.robot_level > 1 && shoot_cmd_recv.robot_level <= 10)
-        {
-            jc_speed = 25.0f;
-        }
-    }
-    if(shoot_cmd_recv.heat_mode == HEAT_OPEN)
-    {
-        float tep_delta = (float)shoot_cmd_recv.heat_limit - shoot_cmd_recv.heat;
-        if(tep_delta >= Heat_Limit_Slowdown_Threshold)
-        {
-            shoot_speed = jc_speed;
-        }
-        else if(tep_delta >= Heat_Limit_Ceasefire_Threshold && tep_delta < Heat_Limit_Slowdown_Threshold)
-        {
-            shoot_speed = (jc_speed * (Heat_Limit_Ceasefire_Threshold - tep_delta) + shoot_cmd_recv.heat_cool / 10.0f * (tep_delta - Heat_Limit_Slowdown_Threshold)) / (Heat_Limit_Ceasefire_Threshold - Heat_Limit_Slowdown_Threshold);
-        }
-        else if(tep_delta < Heat_Limit_Ceasefire_Threshold)
-        {
+        // a: 当前裁判系统给定的冷却速率 (每秒下降的热量)
+        float a = shoot_cmd_recv.heat_cool;
+        // m: 当前可用的热量缓冲容量
+        float m = shoot_cmd_recv.heat_limit - shoot_cmd_recv.heat;
+        // d: 每发子弹产生的热量
+        float d = HEAT_PER_BULLET;
+
+        // 极限安全保护：如果余量已经小于一发子弹的热量，直接停火
+        if (m < d) {
             shoot_speed = 0.0f;
+            is_bursting = 0;
+        }
+        else
+        {
+            // 扳机刚刚按下，或者刚刚切入开火模式，计算爆发策略
+            if (!is_bursting) {
+                is_bursting = 1;
+                burst_start_time = DWT_GetTimeline_ms();
+
+                // 估算爆发持续时间 (单位: 毫秒)
+                // 原公式 (m + 2a)*10 是一种经验公式，为了抹除低等级和高等级的射击手感差异
+                planned_burst_duration = (uint32_t)((m + 2.0f * a) * 10.0f);
+
+                // 限制最长和最短爆发时间，防止数据异常
+                if(planned_burst_duration > 3000) planned_burst_duration = 3000;
+                if(planned_burst_duration < 100) planned_burst_duration = 100;
+
+                // 计算爆发期应该采用的恒定射速 (发/秒)
+                float duration_factor = planned_burst_duration / 100.0f;
+                if (m < 100.0f) {
+                    planned_burst_speed = (10.0f * m - a - 3.0f * d) / (d * duration_factor) + a / d;
+                } else {
+                    planned_burst_speed = (10.0f * m - a - 5.0f * d) / (d * duration_factor) + a / d;
+                }
+
+                // 限制计算出的爆发射速，不能超过机械极限，也不能低于稳态冷却速率
+                if (planned_burst_speed > max_mech_speed) planned_burst_speed = max_mech_speed;
+                if (planned_burst_speed < (a / d)) planned_burst_speed = (a / d);
+            }
+
+            // --- 执行射击策略 ---
+            uint32_t current_time = DWT_GetTimeline_ms();
+
+            if (current_time - burst_start_time < planned_burst_duration) {
+                // 1. 处于爆发期：按计算好的较高射速输出
+                shoot_speed = planned_burst_speed;
+            } else {
+                // 2. 爆发期结束：无缝转入稳态冷却期，射速严格等于冷却速率 (绝对不会超热量)
+                shoot_speed = a / d;
+            }
         }
     }
     else
     {
-        shoot_speed = jc_speed;
+        // 未开启热控，或不处于连发模式（如单发/停止），重置状态机
+        is_bursting = 0;
+        shoot_speed = max_mech_speed;
     }
 
 
@@ -496,7 +276,7 @@ void ShootTask()
         // 单发模式,根据鼠标按下的时间,触发一次之后需要进入不响应输入的状态(否则按下的时间内可能多次进入,导致多次发射)
     case LOAD_1_BULLET:                                                                     // 激活能量机关/干扰对方用,英雄用.
         DJIMotorOuterLoop(loader, ANGLE_LOOP);                              // 切换到角度环
-        DJIMotorSetRef(loader, loader->measure.total_angle + 3600); // 控制量增加一发弹丸的角度
+        DJIMotorSetRef(loader, loader->measure.total_angle + ONE_BULLET_DELTA_ANGLE); // 控制量增加一发弹丸的角度
         hibernate_time = DWT_GetTimeline_ms();                                              // 记录触发指令的时间
         dead_time = 150;// 完成1发弹丸发射的时间
         if(shoot_cmd_recv.heat > 0 && shoot_cmd_recv.heat <= 5)
@@ -510,15 +290,14 @@ void ShootTask()
         // 三连发,如果不需要后续可能删除
     case LOAD_3_BULLET:
         DJIMotorOuterLoop(loader, ANGLE_LOOP);                                     // 切换到角度环
-        DJIMotorSetRef(loader, loader->measure.total_angle - 3 * ONE_BULLET_DELTA_ANGLE); // 增加3发
+        DJIMotorSetRef(loader, loader->measure.total_angle + 3 * ONE_BULLET_DELTA_ANGLE); // 增加3发
         hibernate_time = DWT_GetTimeline_ms();                                                  // 记录触发指令的时间
         dead_time = 1000;                                                                       // 完成3发弹丸发射的时间
         break;
         // 连发模式,对速度闭环,射频后续修改为可变,目前固定为1Hz
         case LOAD_BURSTFIRE:
             DJIMotorOuterLoop(loader, SPEED_LOOP);
-        //DJIMotorSetRef(loader, -shoot_speed * 360 * REDUCTION_RATIO_LOADER / 8);
-        DJIMotorSetRef(loader, 20 * 360 * REDUCTION_RATIO_LOADER / 9);
+        DJIMotorSetRef(loader, shoot_speed * 360 * REDUCTION_RATIO_LOADER / 9);
         // DJIMotorSetRef(loader, 20 * 360 * REDUCTION_RATIO_LOADER / 9);
         // x颗/秒换算成速度: 已知一圈的载弹量,由此计算出1s需要转的角度,注意换算角速度(DJIMotor的速度单位是angle per second)
         break;

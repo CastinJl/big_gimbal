@@ -191,8 +191,10 @@ void DMMotorControl(){
                 pid_measure = *motor_controller->other_angle_feedback_ptr*PI/180;
                 pid_ref = motor->motor_controller.pid_ref*PI/180;
             }
-            else
+            else {
                 pid_measure = measure->position; // MOTOR_FEED,对total angle闭环,防止在边界处出现突跃
+                pid_ref = motor->motor_controller.pid_ref*PI/180;
+            }
             // 更新pid_ref进入下一个环
             pid_ref = PIDCalculate(&motor_controller->angle_PID, pid_measure, pid_ref);
         }
