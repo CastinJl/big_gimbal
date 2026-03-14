@@ -1259,7 +1259,7 @@ void RobotCMDTask() {
     //shoot_cmd_send.heat_cool = chassis_fetch_data.heat_colo;
     gimbal_cmd_send.real_wz = chassis_fetch_data.real_wz;
     // shoot_cmd_send.heat_limit = referee_data->GameRobotState.shooter_barrel_heat_limit;
-    // shoot_cmd_send.heat_cool = referee_data->GameRobotState.shooter_barrel_cooling_value;
+    shoot_cmd_send.heat_cool = chassis_fetch_data.cooling_speed;
     shoot_cmd_send.robot_level = chassis_fetch_data.robot_level;
     shoot_cmd_send.heat = chassis_fetch_data.heat;
     if(referee_data->GameRobotState.power_management_chassis_output == 0){

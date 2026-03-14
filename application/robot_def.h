@@ -139,10 +139,10 @@ typedef enum
 typedef enum
 {
     CHASSIS_ZERO_FORCE = 0,    // 电流零输入
-    CHASSIS_ROTATE,            // 小陀螺模式
-    CHASSIS_NO_FOLLOW,         // 不跟随，允许全向平移
-    CHASSIS_FOLLOW_GIMBAL_YAW, // 跟随模式，底盘叠加角度环控制
-    CHASSIS_ONBOARD_NO_FOLLOW,
+        CHASSIS_ROTATE,            // 小陀螺模式
+        CHASSIS_NO_FOLLOW,         // 不跟随，允许全向平移
+        CHASSIS_FOLLOW_GIMBAL_YAW, // 跟随模式，底盘叠加角度环控制
+        CHASSIS_SIDEWAYS,          // 侧向
 } chassis_mode_e;
 
 // 云台模式设置
@@ -206,10 +206,9 @@ typedef struct
     // 控制部分
     float vx;           // 前进方向速度
     float vy;           // 横移方向速度
-    float offset_angle; // 底盘和归中位置的夹角
+    float offset_angle; // 底盘和归中位置的夹角  单位rad
     chassis_mode_e chassis_mode;
     uint8_t cap_open;
-
     // UI部分
     friction_mode_e friction_mode;
     uint8_t auto_aim_mode;
@@ -266,6 +265,7 @@ typedef struct
     uint16_t heat;
     float real_wz;
     Enemy_Color_e enemy_color;   // 0 for blue, 1 for red
+    uint16_t cooling_speed;
 } Chassis_Upload_Data_s;
 
 
