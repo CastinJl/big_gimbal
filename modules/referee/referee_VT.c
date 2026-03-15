@@ -152,6 +152,7 @@ static void VTRxCallback()
 // 裁判系统丢失回调函数,重新初始化裁判系统串口
 static void VTLostCallback(void *arg)
 {
+    VT_info.vt_ctrl->vt.wheel = 0;
     USARTServiceInit(VT_usart_instance);
     LOGWARNING("[rm_vt] lost vt data");
 }

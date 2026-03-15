@@ -1216,18 +1216,26 @@ void RobotCMDTask() {
         {
             if (referee_VT_data->vt_ctrl[TEMP].vt.mode_sw == 1)//图传遥控器挡位在N,遥控器控制
                 VTRemoteControlSet();
-            if (referee_VT_data->vt_ctrl[TEMP].vt.mode_sw == 2)//图传遥控器挡位在C,键鼠控制
+                //VTMouseKeySet();
+            if (referee_VT_data->vt_ctrl[TEMP].vt.mode_sw == 2)//图传遥控器挡位在S,键鼠控制
                 VTMouseKeySet();
         }
         else if(remote_flag == 1 && VT_cotine == 0)
         {
-            if (switch_is_down(rc_data[TEMP].rc.switch_left) ||
-                switch_is_mid(rc_data[TEMP].rc.switch_left)) // 遥控器左侧开关状态为[下],[中],遥控器控制
+            // if (switch_is_down(rc_data[TEMP].rc.switch_left) ||
+            //     switch_is_mid(rc_data[TEMP].rc.switch_left)) // 遥控器左侧开关状态为[下],[中],遥控器控制
                 RemoteControlSet();
-            else if (switch_is_up(rc_data[TEMP].rc.switch_left) &&
-                     switch_is_mid(rc_data[TEMP].rc.switch_right)) // 遥控器左侧开关状态为[上],键盘控制,遥控器右侧开关状态为[中],遥控器通道
-                VTMouseKeySet();
         }
+        // else if(remote_flag == 0) {
+        //     robot_state = ROBOT_STOP;
+        //     gimbal_cmd_send.gimbal_mode = GIMBAL_ZERO_FORCE;
+        //     chassis_cmd_send.chassis_mode = CHASSIS_ZERO_FORCE;
+        //     shoot_cmd_send.shoot_mode = SHOOT_OFF;
+        //     shoot_cmd_send.friction_mode = FRICTION_OFF;
+        //     chassis_cmd_send.friction_mode = FRICTION_OFF;
+        //     shoot_cmd_send.loader_mode = LOAD_STOP;
+        //     chassis_cmd_send.loader_mode = LOAD_STOP;
+        // }
         // if(referee_VT_data->vt_ctrl[TEMP].vt.mode_sw == 1)
         // {
         //     VTRemoteControlSet();

@@ -87,8 +87,8 @@ void ShootInit()
             .controller_param_init_config = {
                     .angle_PID = {
                             // 如果启用位置环来控制发弹,需要较大的I值保证输出力矩的线性度否则出现接近拨出的力矩大幅下降
-                            .Kp = 500,
-                            .Ki = 600,
+                            .Kp = 100,
+                            .Ki = 200,
                             .Kd = 0,
                             .MaxOut = 30000,
                     },
@@ -189,11 +189,11 @@ void ShootTask()
     static uint8_t is_bursting = 0;
     static float planned_burst_speed = 0.0f;
     static uint32_t planned_burst_duration = 0;
-
+    //shoot_cmd_recv.robot_level = 3;
     // 获取机器人的极限机械射速限制 (原有逻辑保留，作为速度上限)
     float max_mech_speed;
     if(shoot_cmd_recv.aim_flag == 1) {
-        max_mech_speed = (shoot_cmd_recv.robot_level <= 5) ? 40.0f : 45.0f;
+        max_mech_speed = (shoot_cmd_recv.robot_level <= 5) ? 25.0f : 30.0f;
     } else {
         max_mech_speed = (shoot_cmd_recv.robot_level <= 1) ? 20.0f : 25.0f;
     }
@@ -297,7 +297,7 @@ void ShootTask()
         // 连发模式,对速度闭环,射频后续修改为可变,目前固定为1Hz
         case LOAD_BURSTFIRE:
             DJIMotorOuterLoop(loader, SPEED_LOOP);
-        DJIMotorSetRef(loader, 20 * 360 * REDUCTION_RATIO_LOADER / 9);
+        DJIMotorSetRef(loader, shoot_speed * 360 * REDUCTION_RATIO_LOADER / 9);
         // DJIMotorSetRef(loader, 20 * 360 * REDUCTION_RATIO_LOADER / 9);
         // x颗/秒换算成速度: 已知一圈的载弹量,由此计算出1s需要转的角度,注意换算角速度(DJIMotor的速度单位是angle per second)
         break;
