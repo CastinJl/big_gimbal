@@ -279,7 +279,7 @@ void ShootTask()
         if (single_shot_lock == 0)             // 【关键点2】：如果没有上锁，才执行发弹
         {
             DJIMotorOuterLoop(loader, ANGLE_LOOP);                              // 切换到角度环
-            DJIMotorSetRef(loader, loader->measure.total_angle + ONE_BULLET_DELTA_ANGLE * 19); // 控制量增加一发弹丸的角度
+            DJIMotorSetRef(loader, loader->measure.total_angle + ONE_BULLET_DELTA_ANGLE * REDUCTION_RATIO_LOADER); // 控制量增加一发弹丸的角度
             hibernate_time = DWT_GetTimeline_ms();                                              // 记录触发指令的时间
             dead_time = 150;// 完成1发弹丸发射的时间
             single_shot_lock = 1;  //执行一次后立刻上锁

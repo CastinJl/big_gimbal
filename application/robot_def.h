@@ -213,7 +213,7 @@ typedef struct
     friction_mode_e friction_mode;
     uint8_t auto_aim_mode;
     uint8_t auto_aim_fire_suggestion;
-    loader_mode_e loader_mode;
+    uint8_t is_running_fire; //单发、连发标志位，1为连发，0为单发
     uint8_t ui_refresh;
 } Chassis_Ctrl_Cmd_s;
 

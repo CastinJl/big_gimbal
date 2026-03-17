@@ -964,6 +964,7 @@ static void VTMouseKeySet()
     // 待添加,视觉会发来和目标的误差,同样将其转化为total angle的增量进行控制
     // ...
     aim_select.suggest_fire = 0;
+    chassis_cmd_send.auto_aim_mode = 0;
     chassis_cmd_send.auto_aim_fire_suggestion = 0;
     // if (referee_VT_data->vt_ctrl[TEMP].mouse.left && (!referee_VT_data->vt_ctrl[TEMP].mouse.right)) // 左键发射模式
     // {
@@ -990,10 +991,8 @@ static void VTMouseKeySet()
             shoot_cmd_send.shoot_mode = SHOOT_ON;
             if(loader_flag == 0){
                 shoot_cmd_send.loader_mode = LOAD_BURSTFIRE;
-                chassis_cmd_send.loader_mode = LOAD_BURSTFIRE;
             } else if(loader_flag == 1){
                 shoot_cmd_send.loader_mode = LOAD_1_BULLET;
-                chassis_cmd_send.loader_mode = LOAD_1_BULLET;
             }
             // if(loader_flag == 0 && press_left_last == press_left ){
             //     shoot_cmd_send.loader_mode = LOAD_BURSTFIRE;
@@ -1021,34 +1020,35 @@ static void VTMouseKeySet()
     else if ((!referee_VT_data->vt_ctrl[TEMP].mouse.left) && (!referee_VT_data->vt_ctrl[TEMP].mouse.right))
     {
         shoot_cmd_send.loader_mode = LOAD_STOP;
-        chassis_cmd_send.loader_mode = LOAD_STOP;
     }
     press_left_last = press_left ; // 更新状态
     if (referee_VT_data->vt_ctrl[TEMP].mouse.right) // 右键自瞄模式
     {
+        chassis_cmd_send.auto_aim_mode = 1;
+
         auto_aim_mode();
         if (aim_select.suggest_fire == 1 && referee_VT_data->vt_ctrl[TEMP].mouse.left && shoot_cmd_send.friction_mode == FRICTION_ON)
         {
             shoot_cmd_send.aim_flag = 1;
-            chassis_cmd_send.auto_aim_mode = 1;
+            chassis_cmd_send.auto_aim_fire_suggestion = 1;
             shoot_cmd_send.shoot_mode = SHOOT_ON;
             shoot_cmd_send.loader_mode = LOAD_BURSTFIRE;
-            chassis_cmd_send.loader_mode = LOAD_BURSTFIRE;
         } else
         {
             shoot_cmd_send.aim_flag = 0;
-            chassis_cmd_send.auto_aim_mode = 0;
+            chassis_cmd_send.auto_aim_fire_suggestion = 0;
             shoot_cmd_send.loader_mode = LOAD_STOP;
-            chassis_cmd_send.loader_mode = LOAD_STOP;
         }
     }
     switch (referee_VT_data->vt_ctrl[TEMP].key_count[KEY_PRESS][Key_B] % 2) // B键换单发模式
     {
     case 0:
         loader_flag = 0;
+        chassis_cmd_send.is_running_fire = 1;
         break;
     default:
         loader_flag = 1;
+        chassis_cmd_send.is_running_fire = 0;
         break;
     }
     switch (referee_VT_data->vt_ctrl[TEMP].key_count[KEY_PRESS][Key_G] % 2) // G键开关摩擦轮
@@ -1120,7 +1120,6 @@ static void VTMouseKeySet()
     shoot_rate_improve();
     if(shoot_fetch_data.stalled_flag ==1) {
         shoot_cmd_send.loader_mode = LOAD_REVERSE;
-        chassis_cmd_send.loader_mode = LOAD_REVERSE;
     }
     death_check();
 
@@ -1148,7 +1147,6 @@ static void EmergencyHandler() {
             shoot_cmd_send.friction_mode = FRICTION_OFF;
             chassis_cmd_send.friction_mode = FRICTION_OFF;
             shoot_cmd_send.loader_mode = LOAD_STOP;
-            chassis_cmd_send.loader_mode = LOAD_STOP;
             LOGERROR("[CMD] emergency stop!");
         }
     }
@@ -1163,7 +1161,6 @@ static void EmergencyHandler() {
             shoot_cmd_send.friction_mode = FRICTION_OFF;
             chassis_cmd_send.friction_mode = FRICTION_OFF;
             shoot_cmd_send.loader_mode = LOAD_STOP;
-            chassis_cmd_send.loader_mode = LOAD_STOP;
             LOGERROR("[CMD] emergency stop!");
         }
     }
@@ -1178,7 +1175,6 @@ static void EmergencyHandler() {
             shoot_cmd_send.friction_mode = FRICTION_OFF;
             chassis_cmd_send.friction_mode = FRICTION_OFF;
             shoot_cmd_send.loader_mode = LOAD_STOP;
-            chassis_cmd_send.loader_mode = LOAD_STOP;
             LOGERROR("[CMD] emergency stop!");
         }
     }
