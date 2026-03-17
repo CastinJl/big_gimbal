@@ -232,7 +232,7 @@ static void death_check()
 {
     if(chassis_fetch_data.dead_state)
     {
-        rc_data[TEMP].key_count[KEY_PRESS][Key_E] = 0;
+        referee_VT_data->vt_ctrl[TEMP].key[KEY_PRESS].shift = 0;
         gimbal_cmd_send.yaw = gimbal_fetch_data.gimbal_imu_data.YawTotalAngle;
     }
 }
@@ -529,6 +529,8 @@ static void RemoteControlSet() {
 
     if (shoot_fetch_data.stalled_flag == 1)
         shoot_cmd_send.loader_mode = LOAD_REVERSE;
+    if(chassis_fetch_data.dead_state)
+        gimbal_cmd_send.yaw = gimbal_fetch_data.gimbal_imu_data.YawTotalAngle;
 
 }
 /**
@@ -991,8 +993,10 @@ static void VTMouseKeySet()
             shoot_cmd_send.shoot_mode = SHOOT_ON;
             if(loader_flag == 0){
                 shoot_cmd_send.loader_mode = LOAD_BURSTFIRE;
+                chassis_cmd_send.is_running_fire = 1;
             } else if(loader_flag == 1){
                 shoot_cmd_send.loader_mode = LOAD_1_BULLET;
+                chassis_cmd_send.is_running_fire = 0;
             }
             // if(loader_flag == 0 && press_left_last == press_left ){
             //     shoot_cmd_send.loader_mode = LOAD_BURSTFIRE;

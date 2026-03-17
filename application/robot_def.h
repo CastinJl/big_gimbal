@@ -215,6 +215,7 @@ typedef struct
     uint8_t auto_aim_fire_suggestion;
     uint8_t is_running_fire; //单发、连发标志位，1为连发，0为单发
     uint8_t ui_refresh;
+    //uint8_t chassis_rotate_reverse_flag;
 } Chassis_Ctrl_Cmd_s;
 
 // cmd发布的云台控制数据,由gimbal订阅

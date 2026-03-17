@@ -200,64 +200,51 @@ void ShootTask()
 
     if(shoot_cmd_recv.heat_mode == HEAT_OPEN && shoot_cmd_recv.loader_mode == LOAD_BURSTFIRE)
     {
-        // a: 当前裁判系统给定的冷却速率 (每秒下降的热量)
-        float a = shoot_cmd_recv.heat_cool;
-        // m: 当前可用的热量缓冲容量
-        float m = shoot_cmd_recv.heat_limit - shoot_cmd_recv.heat;
-        // d: 每发子弹产生的热量
-        float d = HEAT_PER_BULLET;
+        float a = shoot_cmd_recv.heat_cool; // 冷却速率
+        float m = shoot_cmd_recv.heat_limit - shoot_cmd_recv.heat; // 剩余热量
+        float d = HEAT_PER_BULLET; // 单发热量
 
-        // 极限安全保护：如果余量已经小于一发子弹的热量，直接停火
+        // 1. 稳态机械补偿 (解决热量往下掉的问题)
+        // 理论上稳态射速 = a/d (比如 40/10 = 4)。
+        // 但因为摩擦轮阻力、拨盘空腔，你给电机设定 4发/秒，它可能实际只打出 2.5发。
+        // 所以我们需要给稳态速度乘一个补偿系数，这个系数根据你这台车的机械阻力来定。
+        float compensate_factor = 1.3f; // 【重点调参】：如果你稳态热量还是掉，就把这个往上加(1.4, 1.5)；如果稳态热量超了，就减小(1.1)
+        float target_steady_speed = (a / d) * compensate_factor;
+
+        // 2. 计算 10Hz 延迟的绝对安全刹车距离
+        // 裁判系统 100ms(0.1s) 刷新一次。在这 0.1s 内，以最高射速会打出多少热量？
+        // max_mech_speed * 0.1s * d。例如：25 * 0.1 * 10 = 25 热量。
+        // 我们再加上 5 作为容错底线。
+        float safe_buffer = (max_mech_speed * 0.1f * d) + 5.0f;
+
+        // 减速缓冲带：距离安全底线还有 30 热量时，开始线性收油门
+        float decelerate_buffer = safe_buffer + 30.0f;
+
+        // 3. 状态机判断输出
         if (m < d) {
+            // 极限保护：连1发子弹的热量都不够了，必须停！
             shoot_speed = 0.0f;
-            is_bursting = 0;
         }
-        else
-        {
-            // 扳机刚刚按下，或者刚刚切入开火模式，计算爆发策略
-            if (!is_bursting) {
-                is_bursting = 1;
-                burst_start_time = DWT_GetTimeline_ms();
-
-                // 估算爆发持续时间 (单位: 毫秒)
-                // 原公式 (m + 2a)*10 是一种经验公式，为了抹除低等级和高等级的射击手感差异
-                planned_burst_duration = (uint32_t)((m + 2.0f * a) * 10.0f);
-
-                // 限制最长和最短爆发时间，防止数据异常
-                if(planned_burst_duration > 3000) planned_burst_duration = 3000;
-                if(planned_burst_duration < 100) planned_burst_duration = 100;
-
-                // 计算爆发期应该采用的恒定射速 (发/秒)
-                float duration_factor = planned_burst_duration / 100.0f;
-                if (m < 100.0f) {
-                    planned_burst_speed = (10.0f * m - a - 3.0f * d) / (d * duration_factor) + a / d;
-                } else {
-                    planned_burst_speed = (10.0f * m - a - 5.0f * d) / (d * duration_factor) + a / d;
-                }
-
-                // 限制计算出的爆发射速，不能超过机械极限，也不能低于稳态冷却速率
-                if (planned_burst_speed > max_mech_speed) planned_burst_speed = max_mech_speed;
-                if (planned_burst_speed < (a / d)) planned_burst_speed = (a / d);
-            }
-
-            //执行射击
-            uint32_t current_time = DWT_GetTimeline_ms();
-
-            if (current_time - burst_start_time < planned_burst_duration) {
-                // 1. 处于爆发期：按计算好的较高射速输出
-                shoot_speed = planned_burst_speed;
-            } else {
-                // 2. 爆发期结束：无缝转入稳态冷却期，射速严格等于冷却速率 (绝对不会超热量)
-                shoot_speed = a / d;
-            }
+        else if (m > decelerate_buffer) {
+            // 完美爆发期：距离上限还很远，无脑输出最高射速！ (解决你看到的 11 射速问题)
+            shoot_speed = max_mech_speed;
+        }
+        else if (m > safe_buffer) {
+            // 减速刹车期：距离上限近了，为了防止 100ms 延迟导致超标，平滑降低射速
+            // 把剩余热量在 [safe_buffer, decelerate_buffer] 映射到 [target_steady_speed, max_mech_speed]
+            float ratio = (m - safe_buffer) / (decelerate_buffer - safe_buffer);
+            shoot_speed = target_steady_speed + ratio * (max_mech_speed - target_steady_speed);
+        }
+        else {
+            // 稳态压制期：已经贴近危险边缘，严格输出带补偿的冷却速率
+            shoot_speed = target_steady_speed;
         }
     }
     else
     {
-        // 未开启热控，或不处于连发模式（如单发/停止），重置状态机
-        is_bursting = 0;
         shoot_speed = max_mech_speed;
     }
+
 
 
     // 如果上一次触发单发或3发指令的时间加上不应期仍然大于当前时间(尚未休眠完毕),直接返回即可
@@ -297,7 +284,7 @@ void ShootTask()
         case LOAD_BURSTFIRE:
             single_shot_lock = 0;                  // 切入连发时，为了安全起见也清零锁
             DJIMotorOuterLoop(loader, SPEED_LOOP);
-        DJIMotorSetRef(loader, shoot_speed * 360 * REDUCTION_RATIO_LOADER / 9);
+            DJIMotorSetRef(loader, shoot_speed * 360 * REDUCTION_RATIO_LOADER / 9);
         // DJIMotorSetRef(loader, 20 * 360 * REDUCTION_RATIO_LOADER / 9);
         // x颗/秒换算成速度: 已知一圈的载弹量,由此计算出1s需要转的角度,注意换算角速度(DJIMotor的速度单位是angle per second)
         break;
