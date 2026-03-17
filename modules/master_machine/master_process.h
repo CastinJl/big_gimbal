@@ -80,6 +80,8 @@ typedef __packed struct {
     float roll;
     float pitch;
     float yaw;
+    // float empty1;//占位符，无意义
+    // float empty2;//占位符，无意义
     uint8_t checksum;
     uint8_t tail;//0x0d
     float aim_x;
@@ -95,6 +97,8 @@ typedef __packed struct {
     float pitch;
     float yaw;
     float distance;
+    // float yaw_v;
+    // float pitch_v;
     uint8_t checksum;
     uint8_t tail; //=0x0d;
     float x;

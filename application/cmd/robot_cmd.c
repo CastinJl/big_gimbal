@@ -584,6 +584,8 @@ static void VTRemoteControlSet() {
     {
         auto_aim_mode();
         gimbal_cmd_send.auto_aim_mode = 1;
+        gimbal_cmd_send.vision_yaw_speed_ff = vision_recv_data->vx;
+        gimbal_cmd_send.vision_pitch_speed_ff = vision_recv_data->vy;
     }
     // 射频控制,固定每秒1发,后续可以根据左侧拨轮的值大小切换射频,
     shoot_cmd_send.shoot_rate = 15;
@@ -864,10 +866,12 @@ static void MouseKeySet() {
     {
         case 0:
             shoot_cmd_send.heat_mode = HEAT_OPEN;
+            chassis_cmd_send.heat_open = 1;
             // chassis_cmd_send.heat_mode = HEAT_OPEN;
             break;
         default:
             shoot_cmd_send.heat_mode = HEAT_CLOSE;
+            chassis_cmd_send.heat_open = 0;
             // chassis_cmd_send.heat_mode = HEAT_CLOSE;
         break;
     }
@@ -1089,6 +1093,24 @@ static void VTMouseKeySet()
         chassis_cmd_send.ui_refresh = 0;
         break;
     }
+
+    switch (referee_VT_data->vt_ctrl[TEMP].key[KEY_PRESS].ctrl) //按住ctrl反向小陀螺
+    {
+        case 0:
+            chassis_cmd_send.chassis_mode = CHASSIS_FOLLOW_GIMBAL_YAW;
+        gimbal_cmd_send.gimbal_mode = GIMBAL_GYRO_MODE;
+        break;
+        case 1:
+            chassis_cmd_send.chassis_mode = CHASSIS_ROTATE;
+        gimbal_cmd_send.gimbal_mode = GIMBAL_GYRO_MODE;
+        chassis_cmd_send.chassis_rotate_reverse_flag = 1;
+        break;
+
+        default:
+            chassis_cmd_send.chassis_mode = CHASSIS_FOLLOW_GIMBAL_YAW;
+        gimbal_cmd_send.gimbal_mode = GIMBAL_GYRO_MODE;
+        break;
+    }
     switch (referee_VT_data->vt_ctrl[TEMP].key[KEY_PRESS].shift) //按住shift小陀螺
     {
     case 0:
@@ -1098,6 +1120,7 @@ static void VTMouseKeySet()
     case 1:
         chassis_cmd_send.chassis_mode = CHASSIS_ROTATE;
         gimbal_cmd_send.gimbal_mode = GIMBAL_GYRO_MODE;
+        chassis_cmd_send.chassis_rotate_reverse_flag = 0;
         break;
 
     default:
@@ -1105,6 +1128,7 @@ static void VTMouseKeySet()
         gimbal_cmd_send.gimbal_mode = GIMBAL_GYRO_MODE;
         break;
     }
+
     static uint8_t x_key_prev_state = 0;
     uint8_t x_key_current = rc_data[TEMP].key[KEY_PRESS].x;
     if (x_key_current && !x_key_prev_state) {

@@ -248,9 +248,15 @@ void GimbalTask() {
         case GIMBAL_GYRO_MODE: // 后续只保留此模式
             DMMotorEnable(yaw_motor);
             DMMotorEnable(pitch_motor);
-            float yaw_target_speed = (gimbal_cmd_recv.yaw - last_yaw_ref) * PI / 180 / dt;
-            last_yaw_ref = gimbal_cmd_recv.yaw;
-            float chassis_comp_speed = -gimbal_cmd_recv.real_wz;
+            float yaw_target_speed;
+            if (gimbal_cmd_recv.auto_aim_mode) {
+                yaw_target_speed = gimbal_cmd_recv.vision_yaw_speed_ff;
+            }
+            else {
+                yaw_target_speed = (gimbal_cmd_recv.yaw - last_yaw_ref) * PI / 180 / dt;
+                last_yaw_ref = gimbal_cmd_recv.yaw;
+            }
+            //float chassis_comp_speed = -gimbal_cmd_recv.real_wz;
             //速度前馈限幅
             if (yaw_target_speed > MAX_FF_SPEED_RAD) {
                 yaw_target_speed = MAX_FF_SPEED_RAD;

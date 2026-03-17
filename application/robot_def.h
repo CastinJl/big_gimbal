@@ -209,13 +209,14 @@ typedef struct
     float offset_angle; // 底盘和归中位置的夹角  单位rad
     chassis_mode_e chassis_mode;
     uint8_t cap_open;
+    uint8_t heat_open; //发射热控标志位，1为热控开，0为热控关
     // UI部分
     friction_mode_e friction_mode;
     uint8_t auto_aim_mode;
     uint8_t auto_aim_fire_suggestion;
     uint8_t is_running_fire; //单发、连发标志位，1为连发，0为单发
     uint8_t ui_refresh;
-    //uint8_t chassis_rotate_reverse_flag;
+    uint8_t chassis_rotate_reverse_flag;
 } Chassis_Ctrl_Cmd_s;
 
 // cmd发布的云台控制数据,由gimbal订阅
@@ -228,6 +229,8 @@ typedef struct
     float offset_angle; // 底盘和归中位置的夹角
     float real_wz; // 底盘和归中位置的夹角
     float auto_aim_mode;
+    float vision_yaw_speed_ff;
+    float vision_pitch_speed_ff;
     gimbal_mode_e gimbal_mode;
 } Gimbal_Ctrl_Cmd_s;
 
