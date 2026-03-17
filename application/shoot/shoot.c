@@ -87,10 +87,10 @@ void ShootInit()
             .controller_param_init_config = {
                     .angle_PID = {
                             // 如果启用位置环来控制发弹,需要较大的I值保证输出力矩的线性度否则出现接近拨出的力矩大幅下降
-                            .Kp = 100,
-                            .Ki = 200,
+                            .Kp = 15,
+                            .Ki = 0,
                             .Kd = 0,
-                            .MaxOut = 30000,
+                            .MaxOut = 10000,
                     },
                     .speed_PID = {
                             .Kp = 3.5, // 3
@@ -240,7 +240,7 @@ void ShootTask()
                 if (planned_burst_speed < (a / d)) planned_burst_speed = (a / d);
             }
 
-            // --- 执行射击策略 ---
+            //执行射击
             uint32_t current_time = DWT_GetTimeline_ms();
 
             if (current_time - burst_start_time < planned_burst_duration) {
@@ -272,19 +272,18 @@ void ShootTask()
     case LOAD_STOP:
         DJIMotorOuterLoop(loader, SPEED_LOOP); // 切换到速度环
         DJIMotorSetRef(loader, 0);             // 同时设定参考值为0,这样停止的速度最快
+        single_shot_lock = 0;
         break;
         // 单发模式,根据鼠标按下的时间,触发一次之后需要进入不响应输入的状态(否则按下的时间内可能多次进入,导致多次发射)
-    case LOAD_1_BULLET:                                                                     // 激活能量机关/干扰对方用,英雄用.
-        DJIMotorOuterLoop(loader, ANGLE_LOOP);                              // 切换到角度环
-        DJIMotorSetRef(loader, loader->measure.total_angle + ONE_BULLET_DELTA_ANGLE); // 控制量增加一发弹丸的角度
-        hibernate_time = DWT_GetTimeline_ms();                                              // 记录触发指令的时间
-        dead_time = 150;// 完成1发弹丸发射的时间
-        if(shoot_cmd_recv.heat > 0 && shoot_cmd_recv.heat <= 5)
+    case LOAD_1_BULLET:           // 激活能量机关/干扰对方用,英雄用
+        if (single_shot_lock == 0)             // 【关键点2】：如果没有上锁，才执行发弹
         {
-            DJIMotorOuterLoop(loader, SPEED_LOOP); // 切换到速度环
-            DJIMotorSetRef(loader, 0);             // 同时设定参考值为0,这样停止的速度最快
+            DJIMotorOuterLoop(loader, ANGLE_LOOP);                              // 切换到角度环
+            DJIMotorSetRef(loader, loader->measure.total_angle + ONE_BULLET_DELTA_ANGLE * 19); // 控制量增加一发弹丸的角度
+            hibernate_time = DWT_GetTimeline_ms();                                              // 记录触发指令的时间
+            dead_time = 150;// 完成1发弹丸发射的时间
+            single_shot_lock = 1;  //执行一次后立刻上锁
         }
-        // DJIMotorSetRef(loader, 0); // 控制量增加一发弹丸的角度
 
         break;
         // 三连发,如果不需要后续可能删除
@@ -296,6 +295,7 @@ void ShootTask()
         break;
         // 连发模式,对速度闭环,射频后续修改为可变,目前固定为1Hz
         case LOAD_BURSTFIRE:
+            single_shot_lock = 0;                  // 切入连发时，为了安全起见也清零锁
             DJIMotorOuterLoop(loader, SPEED_LOOP);
         DJIMotorSetRef(loader, shoot_speed * 360 * REDUCTION_RATIO_LOADER / 9);
         // DJIMotorSetRef(loader, 20 * 360 * REDUCTION_RATIO_LOADER / 9);
@@ -304,6 +304,7 @@ void ShootTask()
         // 拨盘反转,对速度闭环,后续增加卡弹检测(通过裁判系统剩余热量反馈和电机电流)
         // 也有可能需要从switch-case中独立出来
         case LOAD_REVERSE:
+            single_shot_lock = 0;                  // 切入连发时，为了安全起见也清零锁
             DJIMotorOuterLoop(loader, SPEED_LOOP);
         DJIMotorSetRef(loader, -5 * 360 * REDUCTION_RATIO_LOADER / 9);             // 固定速度反转
         hibernate_time = DWT_GetTimeline_ms();                                              // 记录触发指令的时间
@@ -312,8 +313,7 @@ void ShootTask()
         // ...
         break;
     default:
-        while (1)
-            ; // 未知模式,停止运行,检查指针越界,内存溢出等问题
+        while (1); // 未知模式,停止运行,检查指针越界,内存溢出等问题
     }
 
     // 确定是否开启摩擦轮,后续可能修改为键鼠模式下始终开启摩擦轮(上场时建议一直开启)
@@ -335,8 +335,8 @@ void ShootTask()
         //                DJIMotorSetRef(friction_r, 0);
         //                break;
         // default: // 当前为了调试设定的默认值4000,因为还没有加入裁判系统无法读取弹速.
-        DJIMotorSetRef(friction_l, 43000);
-        DJIMotorSetRef(friction_r, 43000);
+        DJIMotorSetRef(friction_l, 41000);
+        DJIMotorSetRef(friction_r, 41000);
                        // break;
         //        }
     }
@@ -346,69 +346,9 @@ void ShootTask()
         DJIMotorSetRef(friction_r, 0);
     }
 
-    // // 开关热控
-    // if(shoot_cmd_recv.heat_mode == HEAT_OPEN)
-    // {
-    //     if(shoot_cmd_recv.heat>=(0.85 * heat_limit))
-    //     {
-    //         DJIMotorStop(loader);
-    //     }
-    //     else
-    //     {
-    //         DJIMotorEnable(loader);
-    //     }
-    // }
-    // else if(shoot_cmd_recv.heat_mode == HEAT_CLOSE) {
-    //     DJIMotorEnable(loader);
-    // }
-    // //卡弹检测
-    // float shoot_rate = get_shoot_rate(); // 从控制系统获取射速
-   // if(heat_detector.now_heat > 0.95 * shoot_cmd_recv.heat_limit)
-   // {
-   //     DJIMotorStop(loader);
-   //     shoot_feedback_data.over1 = 1;
-   // }
-   // else
-   // {
-   //     shoot_feedback_data.over1 = 0;
-   // }
-   //  if(heat_detector.now_heat > 0.92 * shoot_cmd_recv.heat_limit)
-   //  {
-   //      DJIMotorStop(loader);
-   //      shoot_feedback_data.over2 = 1;
-   //  }
-   //  else
-   //  {
-   //      shoot_feedback_data.over2 = 0;
-   //  }
-   //  if(heat_detector.now_heat > 0.9 * shoot_cmd_recv.heat_limit)
-   //  {
-   //      // DJIMotorStop(loader);
-   //      shoot_feedback_data.over3 = 1;
-   //  }
-   //  else
-   //  {
-   //      shoot_feedback_data.over3 = 0;
-   //  }
-   // // if(shoot_cmd_recv.shoot_rate == 15)
-   // // {
-   // //     shoot_feedback_data.over = 0;
-   // // }
-   //  if(heat_detector.now_heat > 0.96 * shoot_cmd_recv.heat_limit)
-   //  {
-   //      DJIMotorStop(loader);
-   //  }
+
         stalled_detect();
-   //  Trigger_Update();
-    // // // 热量控制
-    // if(First_flag==100){
-    //     //初始化角度
-    //     init_totalangle=loader->measure.init_totalangle;
-    //     First_flag=0;
-    // }
-    // if(First_flag<100)
-    //     First_flag++;
-    // // Cal_bullet_heat();
+
     // 反馈数据,目前暂时没有要设定的反馈数据,后续可能增加应用离线监测以及卡弹反馈
     PubPushMessage(shoot_pub, (void *)&shoot_feedback_data);
 }

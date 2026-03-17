@@ -214,6 +214,7 @@ typedef struct
     uint8_t auto_aim_mode;
     uint8_t auto_aim_fire_suggestion;
     loader_mode_e loader_mode;
+    uint8_t ui_refresh;
 } Chassis_Ctrl_Cmd_s;
 
 // cmd发布的云台控制数据,由gimbal订阅

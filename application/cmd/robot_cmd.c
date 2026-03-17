@@ -988,14 +988,25 @@ static void VTMouseKeySet()
         if (shoot_cmd_send.friction_mode == FRICTION_ON)
         {
             shoot_cmd_send.shoot_mode = SHOOT_ON;
-            if(loader_flag == 0 && press_left_last == press_left ){
+            if(loader_flag == 0){
                 shoot_cmd_send.loader_mode = LOAD_BURSTFIRE;
                 chassis_cmd_send.loader_mode = LOAD_BURSTFIRE;
-                // press_left_last = press_left ; // 更新状态
-            }else if(loader_flag == 1 && press_left_last != press_left){
+            } else if(loader_flag == 1){
                 shoot_cmd_send.loader_mode = LOAD_1_BULLET;
                 chassis_cmd_send.loader_mode = LOAD_1_BULLET;
             }
+            // if(loader_flag == 0 && press_left_last == press_left ){
+            //     shoot_cmd_send.loader_mode = LOAD_BURSTFIRE;
+            //     chassis_cmd_send.loader_mode = LOAD_BURSTFIRE;
+            //     // press_left_last = press_left ; // 更新状态
+            // }else if(loader_flag == 1 && press_left_last != press_left){ // 刚按下瞬间
+            //     shoot_cmd_send.loader_mode = LOAD_1_BULLET;
+            //     chassis_cmd_send.loader_mode = LOAD_1_BULLET;
+            // }else if(loader_flag == 1 && press_left_last == press_left){ // 单发模式下按住不放
+            //     // 必须加上这一段，否则单发会变成慢连发
+            //     shoot_cmd_send.loader_mode = LOAD_STOP;
+            //     chassis_cmd_send.loader_mode = LOAD_STOP;
+            // }
         }
     }
     // else if ((referee_VT_data->vt_ctrl[TEMP].mouse.left) && prev_vt_left && (!referee_VT_data->vt_ctrl[TEMP].mouse.right))
@@ -1064,17 +1075,17 @@ static void VTMouseKeySet()
         //chassis_cmd_send.heat_mode = HEAT_CLOSE;
         break;
     }
-    // switch (referee_VT_data->vt_ctrl[TEMP].key_count[KEY_PRESS][Key_R] % 2) // R键手动刷新UI
-    // {
-    // case 1:
-    //     chassis_cmd_send.ui_updata = 1;
-    //     referee_VT_data->vt_ctrl[TEMP].key_count[KEY_PRESS][Key_R]++;
-    //     break;
-    // default:
-    //     chassis_cmd_send.ui_updata = 0;
-    //     break;
-    // }
-    switch (referee_VT_data->vt_ctrl[TEMP].key[KEY_PRESS].e) //按住e小陀螺
+    switch (referee_VT_data->vt_ctrl[TEMP].key_count[KEY_PRESS][Key_R] % 2) // R键手动刷新UI
+    {
+    case 1:
+        chassis_cmd_send.ui_refresh = 1;
+        referee_VT_data->vt_ctrl[TEMP].key_count[KEY_PRESS][Key_R]++;
+        break;
+    default:
+        chassis_cmd_send.ui_refresh = 0;
+        break;
+    }
+    switch (referee_VT_data->vt_ctrl[TEMP].key[KEY_PRESS].shift) //按住shift小陀螺
     {
     case 0:
         chassis_cmd_send.chassis_mode = CHASSIS_FOLLOW_GIMBAL_YAW;
@@ -1084,6 +1095,11 @@ static void VTMouseKeySet()
         chassis_cmd_send.chassis_mode = CHASSIS_ROTATE;
         gimbal_cmd_send.gimbal_mode = GIMBAL_GYRO_MODE;
         break;
+
+    default:
+        chassis_cmd_send.chassis_mode = CHASSIS_FOLLOW_GIMBAL_YAW;
+        gimbal_cmd_send.gimbal_mode = GIMBAL_GYRO_MODE;
+        break;
     }
     static uint8_t x_key_prev_state = 0;
     uint8_t x_key_current = rc_data[TEMP].key[KEY_PRESS].x;
@@ -1091,7 +1107,7 @@ static void VTMouseKeySet()
         gimbal_cmd_send.yaw += 180.0f; // 根据方向调整正负号
     }
     x_key_prev_state = x_key_current;
-    switch (referee_VT_data->vt_ctrl[TEMP].key[KEY_PRESS].shift) //按shift允许消耗超级电容能量
+    switch (referee_VT_data->vt_ctrl[TEMP].key[KEY_PRESS].e) //按e允许消耗超级电容能量
     {
     case 0:
         chassis_cmd_send.cap_open = 0;
@@ -1123,7 +1139,7 @@ static void EmergencyHandler() {
     //
     if(VTremote_flag == 1 && remote_flag == 1)
     {
-        if (rc_data[TEMP].rc.dial > 300 || robot_state == ROBOT_STOP || referee_VT_data->vt_ctrl[TEMP].vt.wheel < 500) // 还需添加重要应用和模块离线的判断
+        if (rc_data[TEMP].rc.dial > 300 || robot_state == ROBOT_STOP || (referee_VT_data->vt_ctrl[TEMP].vt.wheel < 500 && referee_VT_data->vt_ctrl[TEMP].vt.wheel>10)) // 还需添加重要应用和模块离线的判断
         {
             robot_state = ROBOT_STOP;
             gimbal_cmd_send.gimbal_mode = GIMBAL_ZERO_FORCE;
@@ -1153,7 +1169,7 @@ static void EmergencyHandler() {
     }
     else if(VTremote_flag == 1 && remote_flag == 0)
     {
-        if (robot_state == ROBOT_STOP || referee_VT_data->vt_ctrl[TEMP].vt.wheel < 500) // 还需添加重要应用和模块离线的判断
+        if (robot_state == ROBOT_STOP || (referee_VT_data->vt_ctrl[TEMP].vt.wheel < 500 && referee_VT_data->vt_ctrl[TEMP].vt.wheel>10)) // 还需添加重要应用和模块离线的判断
         {
             robot_state = ROBOT_STOP;
             gimbal_cmd_send.gimbal_mode = GIMBAL_ZERO_FORCE;
