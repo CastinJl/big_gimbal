@@ -236,24 +236,7 @@ static void death_check()
         gimbal_cmd_send.yaw = gimbal_fetch_data.gimbal_imu_data.YawTotalAngle;
     }
 }
-//功能：等级提升弹频提高
-static void shoot_rate_improve()
-{
-    if(chassis_fetch_data.robot_level <= 5)
-    {
-        if (vision_recv_data->mode == 0)
-            shoot_cmd_send.shoot_rate = 15;
-        else
-            shoot_cmd_send.shoot_rate = 15;
-    }
-    if(chassis_fetch_data.robot_level >= 5)
-    {
-        if (vision_recv_data->mode == 0)
-            shoot_cmd_send.shoot_rate = 15;
-        else
-            shoot_cmd_send.shoot_rate = 15;
-    }
-}
+
 
 // static void update_ui_data() {
 //
@@ -907,7 +890,6 @@ static void MouseKeySet() {
         // chassis_cmd_send.vx = rc_data[TEMP].key[KEY_PRESS].a * 15000 - rc_data[TEMP].key[KEY_PRESS].d * 15000;
         break;
     }
-    shoot_rate_improve();
 
     if(shoot_fetch_data.stalled_flag ==1)
         shoot_cmd_send.loader_mode = LOAD_REVERSE;
@@ -1075,11 +1057,19 @@ static void VTMouseKeySet()
     switch (referee_VT_data->vt_ctrl[TEMP].key_count[KEY_PRESS][Key_Q] % 2) // Q键开关热控
     {
     case 0:
-       shoot_cmd_send.heat_mode = HEAT_OPEN;
+        if (chassis_fetch_data.heat!=0) {
+            shoot_cmd_send.heat_mode = HEAT_OPEN;
+            chassis_cmd_send.heat_open = 1;
+        }
+        else {
+            shoot_cmd_send.heat_mode = HEAT_CLOSE;
+            chassis_cmd_send.heat_open = 0;
+        }
        //chassis_cmd_send.heat_mode = HEAT_OPEN;
         break;
     default:
         shoot_cmd_send.heat_mode = HEAT_CLOSE;
+        chassis_cmd_send.heat_open = 0;
         //chassis_cmd_send.heat_mode = HEAT_CLOSE;
         break;
     }
@@ -1094,48 +1084,52 @@ static void VTMouseKeySet()
         break;
     }
 
-    switch (referee_VT_data->vt_ctrl[TEMP].key[KEY_PRESS].ctrl) //按住ctrl反向小陀螺
-    {
-        case 0:
-            chassis_cmd_send.chassis_mode = CHASSIS_FOLLOW_GIMBAL_YAW;
-        gimbal_cmd_send.gimbal_mode = GIMBAL_GYRO_MODE;
-        break;
-        case 1:
-            chassis_cmd_send.chassis_mode = CHASSIS_ROTATE;
-        gimbal_cmd_send.gimbal_mode = GIMBAL_GYRO_MODE;
-        chassis_cmd_send.chassis_rotate_reverse_flag = 1;
-        break;
+    if (referee_VT_data->vt_ctrl[TEMP].key[KEY_PRESS].shift == 0) {
+        switch (referee_VT_data->vt_ctrl[TEMP].key[KEY_PRESS].ctrl) //按住ctrl反向小陀螺
+        {
+            case 0:
+                chassis_cmd_send.chassis_mode = CHASSIS_FOLLOW_GIMBAL_YAW;
+            gimbal_cmd_send.gimbal_mode = GIMBAL_GYRO_MODE;
+            break;
+            case 1:
+                chassis_cmd_send.chassis_mode = CHASSIS_ROTATE;
+            gimbal_cmd_send.gimbal_mode = GIMBAL_GYRO_MODE;
+            chassis_cmd_send.chassis_rotate_reverse_flag = 1;
+            break;
 
-        default:
-            chassis_cmd_send.chassis_mode = CHASSIS_FOLLOW_GIMBAL_YAW;
-        gimbal_cmd_send.gimbal_mode = GIMBAL_GYRO_MODE;
-        break;
-    }
-    switch (referee_VT_data->vt_ctrl[TEMP].key[KEY_PRESS].shift) //按住shift小陀螺
-    {
-    case 0:
-        chassis_cmd_send.chassis_mode = CHASSIS_FOLLOW_GIMBAL_YAW;
-        gimbal_cmd_send.gimbal_mode = GIMBAL_GYRO_MODE;
-        break;
-    case 1:
-        chassis_cmd_send.chassis_mode = CHASSIS_ROTATE;
-        gimbal_cmd_send.gimbal_mode = GIMBAL_GYRO_MODE;
-        chassis_cmd_send.chassis_rotate_reverse_flag = 0;
-        break;
-
-    default:
-        chassis_cmd_send.chassis_mode = CHASSIS_FOLLOW_GIMBAL_YAW;
-        gimbal_cmd_send.gimbal_mode = GIMBAL_GYRO_MODE;
-        break;
+            default:
+                chassis_cmd_send.chassis_mode = CHASSIS_FOLLOW_GIMBAL_YAW;
+            gimbal_cmd_send.gimbal_mode = GIMBAL_GYRO_MODE;
+            break;
+        }
     }
 
+    if (referee_VT_data->vt_ctrl[TEMP].key[KEY_PRESS].ctrl == 0) {
+        switch (referee_VT_data->vt_ctrl[TEMP].key[KEY_PRESS].shift) //按住shift小陀螺
+        {
+            case 0:
+                chassis_cmd_send.chassis_mode = CHASSIS_FOLLOW_GIMBAL_YAW;
+            gimbal_cmd_send.gimbal_mode = GIMBAL_GYRO_MODE;
+            break;
+            case 1:
+                chassis_cmd_send.chassis_mode = CHASSIS_ROTATE;
+            gimbal_cmd_send.gimbal_mode = GIMBAL_GYRO_MODE;
+            chassis_cmd_send.chassis_rotate_reverse_flag = 0;
+            break;
+
+            default:
+                chassis_cmd_send.chassis_mode = CHASSIS_FOLLOW_GIMBAL_YAW;
+            gimbal_cmd_send.gimbal_mode = GIMBAL_GYRO_MODE;
+            break;
+        }
+    }
     static uint8_t x_key_prev_state = 0;
     uint8_t x_key_current = rc_data[TEMP].key[KEY_PRESS].x;
     if (x_key_current && !x_key_prev_state) {
         gimbal_cmd_send.yaw += 180.0f; // 根据方向调整正负号
     }
     x_key_prev_state = x_key_current;
-    switch (referee_VT_data->vt_ctrl[TEMP].key[KEY_PRESS].e) //按e允许消耗超级电容能量
+    switch (referee_VT_data->vt_ctrl[TEMP].key_count[KEY_PRESS][Key_E] % 2) //按e允许消耗超级电容能量
     {
     case 0:
         chassis_cmd_send.cap_open = 0;
@@ -1145,7 +1139,6 @@ static void VTMouseKeySet()
         // chassis_cmd_send.vx = rc_data[TEMP].key[KEY_PRESS].a * 15000 - rc_data[TEMP].key[KEY_PRESS].d * 15000;
         break;
     }
-    shoot_rate_improve();
     if(shoot_fetch_data.stalled_flag ==1) {
         shoot_cmd_send.loader_mode = LOAD_REVERSE;
     }
