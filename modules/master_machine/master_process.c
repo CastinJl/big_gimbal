@@ -140,9 +140,9 @@ static void DecodeVision(uint16_t recv_len)
     //get_protocol_info(vis_recv_buff, &flag_register, (uint8_t *)&recv_data.pitch);
     //    // TODO: code to resolve flag_register;
     if(vis_recv_buff[0]==0xff)
-    {if(vis_recv_buff[15]==0x0d){
-            if(vis_recv_buff[14]==crc_8(vis_recv_buff,14)) {
-                memcpy(&recv_data, vis_recv_buff, 16/*sizeof(recv_data)*/);
+    {if(vis_recv_buff[23]==0x0d){
+            if(vis_recv_buff[22]==crc_8(vis_recv_buff,22)) {
+                memcpy(&recv_data, vis_recv_buff, 24/*sizeof(recv_data)*/);
             }
         }
     }
@@ -176,7 +176,7 @@ void VisionSend()
     //    // 灏嗘暟鎹浆鍖栦负seasky鍗忚鐨勬暟鎹寘
     //    get_protocol_send_data(0x02, flag_register, &send_data.yaw, 3, send_buff, &tx_len);
     //    USBTransmit(send_buff, tx_len);
-    static uint8_t send_buffer[16]={0};
+    static uint8_t send_buffer[24]={0};
 
     send_data.header = 0xff;
     send_data.tail = 0x0d;
@@ -191,7 +191,7 @@ void VisionSend()
     //send_buffer[2] = send_data.roll;
     //send_buffer[6] = send_data.pitch;
     //send_buffer[10] = send_data.yaw;
-    memcpy(send_buffer,&send_data,16/*sizeof(send_data)*/);
+    memcpy(send_buffer,&send_data,24/*sizeof(send_data)*/);
 
     USBTransmit(send_buffer, sizeof(send_buffer));
 }
