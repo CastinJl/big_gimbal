@@ -182,15 +182,9 @@ void ShootTask()
         DJIMotorEnable(friction_r);
         DJIMotorEnable(loader);
     }
-    // ------------------- 热量与射速控制核心策略（预测+稳态算法） -------------------
 
-    // 用于记录连发的计时状态
-    static uint32_t burst_start_time = 0;
-    static uint8_t is_bursting = 0;
-    static float planned_burst_speed = 0.0f;
-    static uint32_t planned_burst_duration = 0;
-    //shoot_cmd_recv.robot_level = 3;
-    // 获取机器人的极限机械射速限制 (原有逻辑保留，作为速度上限)
+
+    // 获取机器人的极限机械射速限制
     float max_mech_speed;
     if(shoot_cmd_recv.aim_flag == 1) {
         max_mech_speed = (shoot_cmd_recv.robot_level <= 5) ? 25.0f : 30.0f;
@@ -244,7 +238,6 @@ void ShootTask()
     {
         shoot_speed = max_mech_speed;
     }
-
 
 
     // 如果上一次触发单发或3发指令的时间加上不应期仍然大于当前时间(尚未休眠完毕),直接返回即可
