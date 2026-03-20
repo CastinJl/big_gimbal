@@ -263,7 +263,7 @@ typedef struct
 #if defined(CHASSIS_BOARD) || defined(GIMBAL_BOARD) // 非单板的时候底盘还将imu数据回传(若有必要)
     // attitude_t chassis_imu_data;
 #endif
-    Bullet_Speed_e bullet_speed;
+    float bullet_speed;
     uint8_t robot_level;
     uint16_t heat_limit;
     uint8_t dead_state;

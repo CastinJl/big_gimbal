@@ -202,7 +202,7 @@ void ShootTask()
         // 理论上稳态射速 = a/d (比如 40/10 = 4)。
         // 但因为摩擦轮阻力、拨盘空腔，你给电机设定 4发/秒，它可能实际只打出 2.5发。
         // 所以我们需要给稳态速度乘一个补偿系数，这个系数根据你这台车的机械阻力来定。
-        float compensate_factor = 1.3f; // 【重点调参】：如果你稳态热量还是掉，就把这个往上加(1.4, 1.5)；如果稳态热量超了，就减小(1.1)
+        float compensate_factor = 1.0f; // 【重点调参】：如果你稳态热量还是掉，就把这个往上加(1.4, 1.5)；如果稳态热量超了，就减小(1.1)
         float target_steady_speed = (a / d) * compensate_factor;
 
         // 2. 计算 10Hz 延迟的绝对安全刹车距离
@@ -315,8 +315,8 @@ void ShootTask()
         //                DJIMotorSetRef(friction_r, 0);
         //                break;
         // default: // 当前为了调试设定的默认值4000,因为还没有加入裁判系统无法读取弹速.
-        DJIMotorSetRef(friction_l, 41000);
-        DJIMotorSetRef(friction_r, 41000);
+        DJIMotorSetRef(friction_l, 38000);
+        DJIMotorSetRef(friction_r, 38000);
                        // break;
         //        }
     }
