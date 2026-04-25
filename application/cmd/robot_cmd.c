@@ -77,6 +77,7 @@ float tmp_chassis_velocitx_max, tmp_chassis_velocity_max;
 uint8_t remote_flag = 0,VTremote_flag = 0,VT_cotine = 0;
 uint8_t press_left_last = 0;
 uint8_t press_left = 0;
+chassis_mode_e Chassis_Current_Mode = CHASSIS_NO_FOLLOW;
 
 typedef enum {
     TEST_OFF = 0,
@@ -132,33 +133,32 @@ void RobotCMDInit() {
     robot_state = ROBOT_STOP;
 }
 
-/**
- * @brief 根据gimbal app传回的当前电机角度计算和零位的误差
- *        单圈绝对角度的范围是0~360,说明文档中有图示
- *
- */
-// static void CalcOffsetAngle() {
-//     // 别名angle提高可读性,不然太长了不好看,虽然基本不会动这个函数
-//     static float angle;
-//     angle = gimbal_fetch_data.yaw_motor_single_round_angle; // 从云台获取的当前yaw电机单圈角度
-//
-// #if YAW_ECD_GREATER_THAN_4096                               // 如果大于180度
-//     if (angle > YAW_ALIGN_ANGLE && angle <= 180.0f + YAW_ALIGN_ANGLE)
-//         chassis_cmd_send.offset_angle = angle - YAW_ALIGN_ANGLE;
-//     else if (angle > 180.0f + YAW_ALIGN_ANGLE)
-//         chassis_cmd_send.offset_angle = angle - YAW_ALIGN_ANGLE - 360.0f;
-//         // chassis_cmd_send.offset_angle = angle - YAW_ALIGN_ANGLE;
-//         else
-//         chassis_cmd_send.offset_angle = angle - YAW_ALIGN_ANGLE;
-// #else // 小于180度
-//     if (angle > YAW_ALIGN_ANGLE)
-//         chassis_cmd_send.offset_angle = angle - YAW_ALIGN_ANGLE;
-//     else if (angle <= YAW_ALIGN_ANGLE && angle >= YAW_ALIGN_ANGLE - 180.0f)
-//         chassis_cmd_send.offset_angle = angle - YAW_ALIGN_ANGLE;
-//     else
-//         chassis_cmd_send.offset_angle = angle - YAW_ALIGN_ANGLE + 360.0f;
-// #endif
-// }
+
+static void Pitch_Dynamic_Limit_Update() {
+    float current_ecd_deg = gimbal_fetch_data.pitch_motor_single_round_angle * 180.0f / PI;
+
+    float current_imu_deg = gimbal_fetch_data.gimbal_imu_data.Pitch;
+
+    float delta_angle = gimbal_cmd_send.pitch - current_imu_deg;
+
+    // 假设 IMU 抬头为正，且编码器抬头也为正。
+    // 如果编码器抬头时数值减小，这里必须改成减号
+    float predicted_ecd_deg = current_ecd_deg + delta_angle;
+
+    if (predicted_ecd_deg > PITCH_ECD_UPPER_LIMIT) {
+        // 预测会撞到上边，反推允许的最大 IMU 目标值
+        // 允许的最大变化量 = 距离上限的剩余空间
+        float max_allowable_delta = PITCH_ECD_UPPER_LIMIT - current_ecd_deg;
+        gimbal_cmd_send.pitch = current_imu_deg + max_allowable_delta;
+    }
+    else if (predicted_ecd_deg < PITCH_ECD_LOWER_LIMIT) {
+        // 预测会撞到下边，反推允许的最小 IMU 目标值
+        float min_allowable_delta = PITCH_ECD_LOWER_LIMIT - current_ecd_deg;
+        gimbal_cmd_send.pitch = current_imu_deg + min_allowable_delta; // 注意符号
+    }
+    if (gimbal_cmd_send.pitch > PITCH_MAX_ANGLE) gimbal_cmd_send.pitch = PITCH_MAX_ANGLE;
+    if (gimbal_cmd_send.pitch < PITCH_MIN_ANGLE) gimbal_cmd_send.pitch = PITCH_MIN_ANGLE;
+}
 
 static void Gimbal_Test_Signal_Generator(void) {
 
@@ -192,10 +192,10 @@ static void Gimbal_Test_Signal_Generator(void) {
 
     // 强制设置模式，确保云台响应
     //gimbal_cmd_send.gimbal_mode = GIMBAL_GYRO_MODE;
-
+    Pitch_Dynamic_Limit_Update();
     // 限制 Pitch 防止撞击机械限位
-    if (gimbal_cmd_send.pitch >= PITCH_MAX_ANGLE) gimbal_cmd_send.pitch = PITCH_MAX_ANGLE;
-    if (gimbal_cmd_send.pitch <= PITCH_MIN_ANGLE) gimbal_cmd_send.pitch = PITCH_MIN_ANGLE;
+    // if (gimbal_cmd_send.pitch >= PITCH_MAX_ANGLE) gimbal_cmd_send.pitch = PITCH_MAX_ANGLE;
+    // if (gimbal_cmd_send.pitch <= PITCH_MIN_ANGLE) gimbal_cmd_send.pitch = PITCH_MIN_ANGLE;
 }
 
 static void CalcOffsetAngle() {
@@ -299,8 +299,9 @@ static void auto_aim_mode() {
         gimbal_cmd_send.pitch -= (float) rc_data[TEMP].mouse.y / 660 * 6;
 
         // 限制云台俯仰角度
-        if (gimbal_cmd_send.pitch >= PITCH_MAX_ANGLE) gimbal_cmd_send.pitch = PITCH_MAX_ANGLE;
-        if (gimbal_cmd_send.pitch <= PITCH_MIN_ANGLE) gimbal_cmd_send.pitch = PITCH_MIN_ANGLE;
+        Pitch_Dynamic_Limit_Update();
+        // if (gimbal_cmd_send.pitch >= PITCH_MAX_ANGLE) gimbal_cmd_send.pitch = PITCH_MAX_ANGLE;
+        // if (gimbal_cmd_send.pitch <= PITCH_MIN_ANGLE) gimbal_cmd_send.pitch = PITCH_MIN_ANGLE;
         //chassis_cmd_send.heat_mode = HEAT_CLOSE;
 
     } else {
@@ -414,13 +415,12 @@ static void RemoteControlSet() {
     } else if (switch_is_mid(rc_data[TEMP].rc.switch_right)) // 右侧开关状态[中],,底盘跟随云台
     {
         // chassis_cmd_send.chassis_mode = CHASSIS_NO_FOLLOW;
-        chassis_cmd_send.chassis_mode = CHASSIS_FOLLOW_GIMBAL_YAW;
+        chassis_cmd_send.chassis_mode = CHASSIS_NO_FOLLOW;
         gimbal_cmd_send.gimbal_mode = GIMBAL_GYRO_MODE;
         shoot_cmd_send.lid_mode = LID_CLOSE;
     } else if (switch_is_up(rc_data[TEMP].rc.switch_right))// 右侧开关状态[上]
     {
         chassis_cmd_send.chassis_mode = CHASSIS_NO_FOLLOW; //TODO 待测试
-        shoot_cmd_send.lid_mode = LID_OPEN;
     }
     // 云台参数,确定云台控制数据
     if (switch_is_mid(rc_data[TEMP].rc.switch_left) ||
@@ -432,12 +432,14 @@ static void RemoteControlSet() {
         aim_select.suggest_fire = 0;
         chassis_cmd_send.auto_aim_fire_suggestion = 0;
         //gimbal_cmd_send.yaw -= 0.0025f * (float) rc_data[TEMP].rc.rocker_l_;
-        gimbal_cmd_send.yaw -= 0.0005f * (float) rc_data[TEMP].rc.rocker_l_;
-        //gimbal_cmd_send.pitch += 0.001f * (float) rc_data[TEMP].rc.rocker_l1;
-        gimbal_cmd_send.pitch += 0.0005f * (float) rc_data[TEMP].rc.rocker_l1;
-
-        if (gimbal_cmd_send.pitch >= PITCH_MAX_ANGLE) gimbal_cmd_send.pitch = PITCH_MAX_ANGLE;
-        if (gimbal_cmd_send.pitch <= PITCH_MIN_ANGLE) gimbal_cmd_send.pitch = PITCH_MIN_ANGLE;
+        if (gimbal_cmd_send.gimbal_mode!=GIMBAL_FREE_MODE) {
+            gimbal_cmd_send.yaw -= 0.0025f * (float) rc_data[TEMP].rc.rocker_l_;
+            //gimbal_cmd_send.pitch += 0.001f * (float) rc_data[TEMP].rc.rocker_l1;
+            gimbal_cmd_send.pitch += 0.0025f * (float) rc_data[TEMP].rc.rocker_l1;
+            Pitch_Dynamic_Limit_Update();
+        }
+        // if (gimbal_cmd_send.pitch >= PITCH_MAX_ANGLE) gimbal_cmd_send.pitch = PITCH_MAX_ANGLE;
+        // if (gimbal_cmd_send.pitch <= PITCH_MIN_ANGLE) gimbal_cmd_send.pitch = PITCH_MIN_ANGLE;
         //Gimbal_Test_Signal_Generator();
 
     }
@@ -671,12 +673,9 @@ static void VTMouseKeySet()
     chassis_cmd_send.vx = (float) key_w * 3.0f - (float) key_s * 3.0f; // 系数待测
     chassis_cmd_send.vy = (float) key_d * 3.0f - (float) key_a * 3.0f;
 
-    gimbal_cmd_send.yaw -= (float) referee_VT_data->vt_ctrl[TEMP].mouse.x / 660 * 4; // 系数待测
-    gimbal_cmd_send.pitch += (float) referee_VT_data->vt_ctrl[TEMP].mouse.y / 660 * 6;
-    if (gimbal_cmd_send.pitch >= PITCH_MAX_ANGLE)
-        gimbal_cmd_send.pitch = PITCH_MAX_ANGLE;
-    if (gimbal_cmd_send.pitch <= PITCH_MIN_ANGLE)
-        gimbal_cmd_send.pitch = PITCH_MIN_ANGLE;
+    gimbal_cmd_send.yaw -= (float) referee_VT_data->vt_ctrl[TEMP].mouse.x / 660 * 20; // 系数待测//4
+    gimbal_cmd_send.pitch += (float) referee_VT_data->vt_ctrl[TEMP].mouse.y / 660 * 30;//6
+    Pitch_Dynamic_Limit_Update();
     // gimbal_cmd_send.pid_flag = 0;// 云台pitch的pid切换标志
     // 待添加,视觉会发来和目标的误差,同样将其转化为total angle的增量进行控制
     // ...
@@ -817,7 +816,7 @@ static void VTMouseKeySet()
         switch (referee_VT_data->vt_ctrl[TEMP].key[KEY_PRESS].ctrl) //按住ctrl反向小陀螺
         {
             case 0:
-                chassis_cmd_send.chassis_mode = CHASSIS_FOLLOW_GIMBAL_YAW;
+                chassis_cmd_send.chassis_mode = Chassis_Current_Mode;
             gimbal_cmd_send.gimbal_mode = GIMBAL_GYRO_MODE;
             break;
             case 1:
@@ -827,7 +826,7 @@ static void VTMouseKeySet()
             break;
 
             default:
-                chassis_cmd_send.chassis_mode = CHASSIS_FOLLOW_GIMBAL_YAW;
+                chassis_cmd_send.chassis_mode = Chassis_Current_Mode;
             gimbal_cmd_send.gimbal_mode = GIMBAL_GYRO_MODE;
             break;
         }
@@ -837,7 +836,7 @@ static void VTMouseKeySet()
         switch (referee_VT_data->vt_ctrl[TEMP].key[KEY_PRESS].shift) //按住shift小陀螺
         {
             case 0:
-                chassis_cmd_send.chassis_mode = CHASSIS_FOLLOW_GIMBAL_YAW;
+                chassis_cmd_send.chassis_mode = Chassis_Current_Mode;
             gimbal_cmd_send.gimbal_mode = GIMBAL_GYRO_MODE;
             break;
             case 1:
@@ -847,7 +846,7 @@ static void VTMouseKeySet()
             break;
 
             default:
-                chassis_cmd_send.chassis_mode = CHASSIS_FOLLOW_GIMBAL_YAW;
+                chassis_cmd_send.chassis_mode = Chassis_Current_Mode;
             gimbal_cmd_send.gimbal_mode = GIMBAL_GYRO_MODE;
             break;
         }
@@ -868,9 +867,27 @@ static void VTMouseKeySet()
         // chassis_cmd_send.vx = rc_data[TEMP].key[KEY_PRESS].a * 15000 - rc_data[TEMP].key[KEY_PRESS].d * 15000;
         break;
     }
+
+    switch (referee_VT_data->vt_ctrl[TEMP].key_count[KEY_PRESS][Key_V] % 3) // V键切换底盘模式
+    {
+        case 0:
+            Chassis_Current_Mode = CHASSIS_NO_FOLLOW;
+        break;
+        case 1:
+            Chassis_Current_Mode = CHASSIS_FOLLOW_GIMBAL_YAW;
+        break;
+        case 2:
+            Chassis_Current_Mode = CHASSIS_WAVE_ROAD;
+        break;
+        default:
+            Chassis_Current_Mode = CHASSIS_NO_FOLLOW;
+        break;
+    }
+
     if(shoot_fetch_data.stalled_flag ==1) {
         shoot_cmd_send.loader_mode = LOAD_REVERSE;
     }
+
     death_check();
 
 }

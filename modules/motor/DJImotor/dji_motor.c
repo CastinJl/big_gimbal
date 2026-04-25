@@ -8,6 +8,7 @@ static uint8_t idx = 0; // register idx,是该文件的全局电机索引,在注
 /* DJI电机的实例,此处仅保存指针,内存的分配将通过电机实例初始化时通过malloc()进行 */
 static DJIMotorInstance *dji_motor_instance[DJI_MOTOR_CNT] = {NULL}; // 会在control任务中遍历该指针数组进行pid计算
 static uint8_t flag = 1;
+uint8_t flag_fric_lost = 0;
 
 /**
  * @brief 由于DJI电机发送以四个一组的形式进行,故对其进行特殊处理,用6个(2can*3group)can_instance专门负责发送
@@ -153,6 +154,7 @@ static void DecodeDJIMotor(CANInstance *_instance) {
     DJI_Motor_Measure_s *measure = &motor->measure; // measure要多次使用,保存指针减小访存开销
 
     DaemonReload(motor->daemon);
+    motor->lost_flag=0;
     motor->dt = DWT_GetDeltaT(&motor->feed_cnt);
 
     // 解析数据并对电流和速度进行滤波,电机的反馈报文具体格式见电机说明手册
@@ -180,6 +182,7 @@ static void DecodeDJIMotor(CANInstance *_instance) {
 static void DJIMotorLostCallback(void *motor_ptr) {
     DJIMotorInstance *motor = (DJIMotorInstance *) motor_ptr;
     uint16_t can_bus = motor->motor_can_instance->can_handle == &hcan1 ? 1 : 2;
+    motor->lost_flag = 1;
     LOGWARNING("[dji_motor] Motor lost, can bus [%d] , id [%d]", can_bus, motor->motor_can_instance->tx_id);
 }
 
@@ -282,6 +285,7 @@ void DJIMotorControl() {
         motor_controller = &motor->motor_controller;
         measure = &motor->measure;
         pid_ref = motor_controller->pid_ref; // 保存设定值,防止motor_controller->pid_ref在计算过程中被修改
+
         if (motor_setting->motor_reverse_flag == MOTOR_DIRECTION_REVERSE)
             pid_ref *= -1; // 设置反转
 
@@ -382,6 +386,10 @@ void DJIMotorControl() {
 
     // 遍历flag,检查是否要发送这一帧报文
     for (size_t i = 0; i < 10; ++i) {
+        if (motor->lost_flag == 1) {
+            //说明触发看门狗了，不再发送消息！防止大疆电机虚弱
+            continue;
+        }
         if (sender_enable_flag[i]) {
             CANTransmit(&sender_assignment[i], 5);
         }

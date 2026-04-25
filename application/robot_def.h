@@ -23,15 +23,19 @@
 
 #define VISION_USE_VCP  // 使用虚拟串口发送视觉数据
 // #define VISION_USE_UART // 使用串口发送视觉数据
-
+#define RAD_TO_DEG 180.0f / PI
 /* 机器人重要参数定义,注意根据不同机器人进行修改,浮点数需要以.0或f结尾,无符号以u结尾 */
 // 云台参数
-#define YAW_CHASSIS_ALIGN_RAD -1.237// 云台和底盘对齐指向相同方向时的电机position值,若对云台有机械改动需要修改
+#define YAW_CHASSIS_ALIGN_RAD 0.7678// 云台和底盘对齐指向相同方向时的电机position值,若对云台有机械改动需要修改
 #define YAW_ECD_GREATER_THAN_4096 0 // ALIGN_ECD值是否大于4096,是为1,否为0;用于计算云台偏转角度
 #define MAX_FF_SPEED_RAD 20
 #define PITCH_HORIZON_ECD 3742    // 云台处于水平位置时编码器值,若对云台有机械改动需要修改
-#define PITCH_MAX_ANGLE 35           // 云台竖直方向最大角度 (注意反馈如果是陀螺仪，则填写陀螺仪的角度)
-#define PITCH_MIN_ANGLE -21          // 云台竖直方向最小角度 (注意反馈如果是陀螺仪，则填写陀螺仪的角度)
+#define PITCH_MAX_ANGLE 45.2           // 云台竖直方向最大角度 (IMU)
+#define PITCH_MIN_ANGLE -17.7          // 云台竖直方向最小角度 (IMU)
+#define PITCH_MAX_ECD 2.97           // 云台竖直方向最大角度 (电机编码器)
+#define PITCH_MIN_ECD 1.8629          // 云台竖直方向最小角度 (电机编码器)
+#define PITCH_ECD_UPPER_LIMIT  (PITCH_MAX_ECD * RAD_TO_DEG)  // 向上极点
+#define PITCH_ECD_LOWER_LIMIT  (PITCH_MIN_ECD * RAD_TO_DEG) // 向下极点
 
 #define PITCH_MAX_RELATIVE_ANGLE 123        // 云台相对底盘最大角度
 #define PITCH_MIN_RELATIVE_ANGLE 80          // 云台相对底盘最小角度
@@ -88,17 +92,7 @@ typedef struct {
     int front, rear;    // 头尾指针
 } CurrentQueue;
 
-typedef struct {
-    FSM_State state;            // 当前状态
-    CurrentQueue current_q;      // 电流差值队列
-    float q_sum;                // 队列总和
-    float last_q_sum;                // 队列总和
-    float error_q_sum;                // 队列总和
 
-    float now_heat;             // 当前热量
-    uint32_t total_ammo;        // 总弹药计数
-    float q_threshold;          // 触发阈值（可动态调整）
-} HeatDetector;
 typedef struct {
     // 状态跟踪
     uint8_t last_trigger_state;   // 上一次触发状态
@@ -142,7 +136,8 @@ typedef enum
         CHASSIS_ROTATE,            // 小陀螺模式
         CHASSIS_NO_FOLLOW,         // 不跟随，允许全向平移
         CHASSIS_FOLLOW_GIMBAL_YAW, // 跟随模式，底盘叠加角度环控制
-        CHASSIS_SIDEWAYS,          // 侧向
+        CHASSIS_ONEBOARD_NO_FOLLOW,          // 侧向
+    CHASSIS_WAVE_ROAD
 } chassis_mode_e;
 
 // 云台模式设置
@@ -279,7 +274,7 @@ typedef struct
     attitude_t gimbal_imu_data;
     float yaw_motor_single_round_angle;
     float yaw_motor_sum_round_angle;
-
+    float pitch_motor_single_round_angle;
 } Gimbal_Upload_Data_s;
 
 typedef struct

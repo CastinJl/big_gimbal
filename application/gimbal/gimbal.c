@@ -107,7 +107,7 @@ void GimbalInit() {
             },
             .controller_param_init_config = {
                     .angle_PID = {
-                            .Kp = 50,//50//30
+                            .Kp = 30,//50//30
                             .Ki = 0.0f,//0
                             .Kd = 0.0f,//0.0f,//0.005f
                             .DeadBand = 0.0f,
@@ -117,9 +117,9 @@ void GimbalInit() {
 
                     },
                     .speed_PID = {
-                            .Kp = 2.2f,//10
-                            .Ki = 0,
-                            .Kd = 0.0f, //0.005f
+                            .Kp = 1.5f,//10
+                            .Ki = 80,
+                            .Kd = 0, //0.005f
                             .Improve = PID_Integral_Limit | PID_Derivative_On_Measurement | PID_DerivativeFilter,
                             .IntegralLimit = 5,
                             .MaxOut = 10, //即输出扭矩TMAX，可通过达妙上位机读取或修改
@@ -168,10 +168,10 @@ void GimbalInit() {
                     },
                     .speed_PID = {
                             .Kp = 2.0f,//白头2.25，绿头2.0（应该也可以2.25
-                            .Ki = 0.0f,//可以不给，没有阻尼测试
+                            .Ki = 70.0f,//可以不给，没有阻尼测试
                             .Kd = 0.001f,//白头0.005,绿头0.001
                             .Improve = PID_Integral_Limit | PID_Derivative_On_Measurement,
-                            .IntegralLimit = 10000,
+                            .IntegralLimit = 5,
                             .MaxOut = 10,
                             //.Derivative_LPF_RC = 0.02f
 
@@ -242,7 +242,7 @@ void GimbalTask() {
         case GIMBAL_ZERO_FORCE:
             DMMotorStop(yaw_motor);
             DMMotorStop(pitch_motor);
-
+            
             break;
             // 使用陀螺仪的反馈,底盘根据yaw电机的offset跟随云台或视觉模式采用
         case GIMBAL_GYRO_MODE: // 后续只保留此模式
@@ -273,7 +273,26 @@ void GimbalTask() {
             //     pitch_set = generate_angle_setpoint();
             // }
             // motor_model_count++;
+            //if (pitch_motor->measure.angle_single_round>PITCH_MAX_ECD)
+
             DMMotorSetRef(pitch_motor,gimbal_cmd_recv.pitch);
+
+            float yaw_angle_err = yaw_motor->motor_controller.angle_PID.Err;
+
+            // 积分分离
+            if (fabs(yaw_angle_err) > 1.0f) {
+                // 如果角度误差大于2度，强制把速度环的积分项清零
+                yaw_motor->motor_controller.speed_PID.ITerm = 0.0f;
+                yaw_motor->motor_controller.speed_PID.Iout = 0.0f;
+            }
+
+            // Pitch 同理
+            float pitch_angle_err = pitch_motor->motor_controller.angle_PID.Err;
+            if (fabs(pitch_angle_err) > 1.0f) { // Pitch较轻，阈值可以小点
+                pitch_motor->motor_controller.speed_PID.ITerm = 0.0f;
+                pitch_motor->motor_controller.speed_PID.Iout = 0.0f;
+            }
+
             //DMMotorSetRef(pitch_motor,pitch_set);
             // // DMMotorSetRef(pitch_motor,5);
             // roll_get = gimba_IMU_data->Roll;
@@ -363,6 +382,7 @@ void GimbalTask() {
     gimbal_feedback_data.gimbal_imu_data = *gimba_IMU_data;
     gimbal_feedback_data.yaw_motor_single_round_angle = yaw_motor->measure.angle_single_round;
     gimbal_feedback_data.yaw_motor_sum_round_angle= yaw_motor->measure.total_angle;
+    gimbal_feedback_data.pitch_motor_single_round_angle= pitch_motor->measure.angle_single_round;
 
     // 推送消息
     PubPushMessage(gimbal_pub, (void *) &gimbal_feedback_data);

@@ -153,8 +153,8 @@ __attribute__((noreturn)) void StartROBOCMDTASK(void const *argument)
         cmd_start = DWT_GetTimeline_ms();
         CMDTask();
         cmd_dt = DWT_GetTimeline_ms() - cmd_start;
-        if (cmd_dt > 1)
+        if (cmd_dt > 5)
             LOGERROR("[freeRTOS] CMD Task is being DELAY! dt = [%f]", &cmd_dt);
-        osDelay(1);
+        osDelay(5);
     }
 }
