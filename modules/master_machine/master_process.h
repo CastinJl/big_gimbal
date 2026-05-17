@@ -80,8 +80,8 @@ typedef __packed struct {
     float roll;
     float pitch;
     float yaw;
-    // float empty1;//占位符，无意义
-    // float empty2;//占位符，无意义
+    float empty1;//占位符，无意义
+    float empty2;//占位符，无意义
     uint8_t checksum;
     uint8_t tail;//0x0d
     float aim_x;
@@ -97,8 +97,8 @@ typedef __packed struct {
     float pitch;
     float yaw;
     float distance;
-    // float yaw_v;
-    // float pitch_v;
+    float pitch_v;
+    float yaw_v;
     uint8_t checksum;
     uint8_t tail; //=0x0d;
     float x;
@@ -140,7 +140,7 @@ void VisionSend();
  * @param bullet_speed
  */
 //void VisionSetFlag(Enemy_Color_e enemy_color, Work_Mode_e work_mode, Bullet_Speed_e bullet_speed);
-void VisionSetFlag(Enemy_Color_e enemy_color);
+void VisionSetFlag(uint8_t enemy_color);
 
 /**
  * @brief 璁剧疆鍙戦€佹暟鎹殑濮挎€侀儴鍒?

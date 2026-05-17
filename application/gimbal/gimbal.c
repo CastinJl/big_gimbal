@@ -74,7 +74,7 @@ float Yaw_FF_Filter(float input) {
     // 0.1: 超强滤波 (非常平滑，滞后明显)
     // 0.3: 推荐值 (平衡点)
     // 0.8: 弱滤波 (响应快，可能还有点响)
-    const float alpha = 0.6f;
+    const float alpha = 0.3f;
     // ---------------
 
     // 使用 static 变量，函数退出后数值依然保留，下次进来还能接着用
@@ -117,9 +117,9 @@ void GimbalInit() {
 
                     },
                     .speed_PID = {
-                            .Kp = 1.5f,//10
-                            .Ki = 80,
-                            .Kd = 0, //0.005f
+                            .Kp = 2.1f,//10
+                            .Ki = 60,
+                            .Kd = 0.01f, //0.005f
                             .Improve = PID_Integral_Limit | PID_Derivative_On_Measurement | PID_DerivativeFilter,
                             .IntegralLimit = 5,
                             .MaxOut = 10, //即输出扭矩TMAX，可通过达妙上位机读取或修改
@@ -168,7 +168,7 @@ void GimbalInit() {
                     },
                     .speed_PID = {
                             .Kp = 2.0f,//白头2.25，绿头2.0（应该也可以2.25
-                            .Ki = 70.0f,//可以不给，没有阻尼测试
+                            .Ki = 30.0f,//可以不给，没有阻尼测试
                             .Kd = 0.001f,//白头0.005,绿头0.001
                             .Improve = PID_Integral_Limit | PID_Derivative_On_Measurement,
                             .IntegralLimit = 5,
@@ -242,30 +242,39 @@ void GimbalTask() {
         case GIMBAL_ZERO_FORCE:
             DMMotorStop(yaw_motor);
             DMMotorStop(pitch_motor);
-            
+            yaw_motor->motor_controller.speed_PID.ITerm = 0.0f;
+            yaw_motor->motor_controller.speed_PID.Iout = 0.0f;
+            pitch_motor->motor_controller.speed_PID.ITerm = 0.0f;
+            pitch_motor->motor_controller.speed_PID.Iout = 0.0f;
             break;
             // 使用陀螺仪的反馈,底盘根据yaw电机的offset跟随云台或视觉模式采用
         case GIMBAL_GYRO_MODE: // 后续只保留此模式
             DMMotorEnable(yaw_motor);
             DMMotorEnable(pitch_motor);
-            float yaw_target_speed;
-            // if (gimbal_cmd_recv.auto_aim_mode) {
-            //     yaw_target_speed = gimbal_cmd_recv.vision_yaw_speed_ff;
-            // }
-            // else {
-                yaw_target_speed = (gimbal_cmd_recv.yaw - last_yaw_ref) * PI / 180 / dt;
-                last_yaw_ref = gimbal_cmd_recv.yaw;
-            // }
-            //float chassis_comp_speed = -gimbal_cmd_recv.real_wz;
-            //速度前馈限幅
-            if (yaw_target_speed > MAX_FF_SPEED_RAD) {
-                yaw_target_speed = MAX_FF_SPEED_RAD;
-            } else if (yaw_target_speed < -MAX_FF_SPEED_RAD) {
-                yaw_target_speed = -MAX_FF_SPEED_RAD;
-            }
-            //yaw_target_speed = Yaw_FF_Filter(yaw_target_speed);   //速度前馈滤波，代价是响应速度
+
             // 速度前馈
-            yaw_speed_feedforward = yaw_target_speed * vision_kv;
+            if (gimbal_cmd_recv.auto_aim_mode == 1) {
+                yaw_speed_feedforward = gimbal_cmd_recv.vision_yaw_speed_ff*PI/180.0f;
+            }
+            else {
+                // float yaw_target_speed;
+                // yaw_target_speed = (gimbal_cmd_recv.yaw - last_yaw_ref) * PI / 180 / dt;
+                // last_yaw_ref = gimbal_cmd_recv.yaw;
+                // // }
+                // //float chassis_comp_speed = -gimbal_cmd_recv.real_wz;
+                // //速度前馈限幅
+                // if (yaw_target_speed > MAX_FF_SPEED_RAD) {
+                //     yaw_target_speed = MAX_FF_SPEED_RAD;
+                // } else if (yaw_target_speed < -MAX_FF_SPEED_RAD) {
+                //     yaw_target_speed = -MAX_FF_SPEED_RAD;
+                // }
+                // //yaw_target_speed = Yaw_FF_Filter(yaw_target_speed);   //速度前馈滤波，代价是响应速度
+                // // 速度前馈
+                //yaw_speed_feedforward = Yaw_FF_Filter(yaw_target_speed);
+                yaw_speed_feedforward = gimbal_cmd_recv.vision_yaw_speed_ff*PI/180.0f;
+
+            }
+
             DMMotorSetRef(yaw_motor, gimbal_cmd_recv.yaw); // yaw和pitch会在robot_cmd中处理好多圈和单圈
             pitch_get = gimba_IMU_data->Pitch;
             // if (motor_model_count > 50) {
@@ -280,7 +289,7 @@ void GimbalTask() {
             float yaw_angle_err = yaw_motor->motor_controller.angle_PID.Err;
 
             // 积分分离
-            if (fabs(yaw_angle_err) > 1.0f) {
+            if (fabs(yaw_angle_err) > 0.5f) {
                 // 如果角度误差大于2度，强制把速度环的积分项清零
                 yaw_motor->motor_controller.speed_PID.ITerm = 0.0f;
                 yaw_motor->motor_controller.speed_PID.Iout = 0.0f;
@@ -288,7 +297,7 @@ void GimbalTask() {
 
             // Pitch 同理
             float pitch_angle_err = pitch_motor->motor_controller.angle_PID.Err;
-            if (fabs(pitch_angle_err) > 1.0f) { // Pitch较轻，阈值可以小点
+            if (fabs(pitch_angle_err) > 0.5f) { // Pitch较轻，阈值可以小点
                 pitch_motor->motor_controller.speed_PID.ITerm = 0.0f;
                 pitch_motor->motor_controller.speed_PID.Iout = 0.0f;
             }
@@ -314,7 +323,10 @@ void GimbalTask() {
         case GIMBAL_FREE_MODE: // 后续删除,或加入云台追地盘的跟随模式(响应速度更快)
             DMMotorStop(yaw_motor);
             DMMotorStop(pitch_motor);
-
+            yaw_motor->motor_controller.speed_PID.ITerm = 0.0f;
+            yaw_motor->motor_controller.speed_PID.Iout = 0.0f;
+            pitch_motor->motor_controller.speed_PID.ITerm = 0.0f;
+            pitch_motor->motor_controller.speed_PID.Iout = 0.0f;
             //DJIMotorSetRef(yaw_motor, gimbal_cmd_recv.yaw); // yaw和pitch会在robot_cmd中处理好多圈和单圈
 
             //        big_yaw_angle = chassis_cmd_recv.offset_angle;
@@ -383,7 +395,7 @@ void GimbalTask() {
     gimbal_feedback_data.yaw_motor_single_round_angle = yaw_motor->measure.angle_single_round;
     gimbal_feedback_data.yaw_motor_sum_round_angle= yaw_motor->measure.total_angle;
     gimbal_feedback_data.pitch_motor_single_round_angle= pitch_motor->measure.angle_single_round;
-
+    gimbal_feedback_data.pitch_motor_lost_flag = pitch_motor->lost_flag;
     // 推送消息
     PubPushMessage(gimbal_pub, (void *) &gimbal_feedback_data);
 }

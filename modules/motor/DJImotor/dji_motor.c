@@ -370,26 +370,29 @@ void DJIMotorControl() {
         // 获取最终输出  此处注意set不要超过int16_t能表达的最大数 +-32767
 
         pid_ref = float_constrain(pid_ref,-16384,16384);
-        // 获取最终输出
-        set = (int16_t) pid_ref;
+        if (motor->lost_flag == 1) {
+            //说明触发看门狗了，不再发送消息！防止大疆电机虚弱
+            set = (int16_t)0;
+        }
+        else
+        {
+            // 获取最终输出
+            set = (int16_t) pid_ref;
 
-        // 分组填入发送数据
-        group = motor->sender_group;
-        num = motor->message_num;
-        sender_assignment[group].tx_buff[2 * num] = (uint8_t) (set >> 8);         // 低八位
-        sender_assignment[group].tx_buff[2 * num + 1] = (uint8_t) (set & 0x00ff); // 高八位
+            // 分组填入发送数据
+            group = motor->sender_group;
+            num = motor->message_num;
+            sender_assignment[group].tx_buff[2 * num] = (uint8_t) (set >> 8);         // 低八位
+            sender_assignment[group].tx_buff[2 * num + 1] = (uint8_t) (set & 0x00ff); // 高八位
 
-        // 若该电机处于停止状态,直接将buff置零
-        if (motor->stop_flag == MOTOR_STOP)
-            memset(sender_assignment[group].tx_buff + 2 * num, 0, 16u);
+            // 若该电机处于停止状态,直接将buff置零
+            if (motor->stop_flag == MOTOR_STOP)
+                memset(sender_assignment[group].tx_buff + 2 * num, 0, 16u);
+        }
     }
 
     // 遍历flag,检查是否要发送这一帧报文
     for (size_t i = 0; i < 10; ++i) {
-        if (motor->lost_flag == 1) {
-            //说明触发看门狗了，不再发送消息！防止大疆电机虚弱
-            continue;
-        }
         if (sender_enable_flag[i]) {
             CANTransmit(&sender_assignment[i], 5);
         }

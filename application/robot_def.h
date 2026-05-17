@@ -30,10 +30,10 @@
 #define YAW_ECD_GREATER_THAN_4096 0 // ALIGN_ECD值是否大于4096,是为1,否为0;用于计算云台偏转角度
 #define MAX_FF_SPEED_RAD 20
 #define PITCH_HORIZON_ECD 3742    // 云台处于水平位置时编码器值,若对云台有机械改动需要修改
-#define PITCH_MAX_ANGLE 45.2           // 云台竖直方向最大角度 (IMU)
+#define PITCH_MAX_ANGLE 42           // 云台竖直方向最大角度 (IMU)
 #define PITCH_MIN_ANGLE -17.7          // 云台竖直方向最小角度 (IMU)
-#define PITCH_MAX_ECD 2.97           // 云台竖直方向最大角度 (电机编码器)
-#define PITCH_MIN_ECD 1.8629          // 云台竖直方向最小角度 (电机编码器)
+#define PITCH_MAX_ECD 2.95           // 云台竖直方向最大角度 (电机编码器)
+#define PITCH_MIN_ECD 1.87          // 云台竖直方向最小角度 (电机编码器)
 #define PITCH_ECD_UPPER_LIMIT  (PITCH_MAX_ECD * RAD_TO_DEG)  // 向上极点
 #define PITCH_ECD_LOWER_LIMIT  (PITCH_MIN_ECD * RAD_TO_DEG) // 向下极点
 
@@ -179,6 +179,15 @@ typedef enum
     HEAT_OPEN , // 热控打开
     HEAT_CLOSE, // 热控关闭
 }heat_mode_e;
+
+//自瞄模式，决定是打大符，小符还是装甲板
+typedef enum
+{
+    ARMOR,//装甲板
+    POWER_RUNE_SMALL,//小符
+    POWER_RUNE_BIG,//大符
+}auto_aim_target_mode_e;
+
 // 功率限制,从裁判系统获取,是否有必要保留?
 typedef struct
 {
@@ -212,6 +221,7 @@ typedef struct
     uint8_t is_running_fire; //单发、连发标志位，1为连发，0为单发
     uint8_t ui_refresh;
     uint8_t chassis_rotate_reverse_flag;
+    auto_aim_target_mode_e auto_aim_target_mode;
 } Chassis_Ctrl_Cmd_s;
 
 // cmd发布的云台控制数据,由gimbal订阅
@@ -275,6 +285,7 @@ typedef struct
     float yaw_motor_single_round_angle;
     float yaw_motor_sum_round_angle;
     float pitch_motor_single_round_angle;
+    uint8_t pitch_motor_lost_flag;
 } Gimbal_Upload_Data_s;
 
 typedef struct
