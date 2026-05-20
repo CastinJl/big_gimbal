@@ -256,7 +256,7 @@ void ShootTask()
         break;
         // 单发模式,根据鼠标按下的时间,触发一次之后需要进入不响应输入的状态(否则按下的时间内可能多次进入,导致多次发射)
     case LOAD_1_BULLET:           // 激活能量机关/干扰对方用,英雄用
-        if (single_shot_lock == 0)             // 【关键点2】：如果没有上锁，才执行发弹
+        if (single_shot_lock == 0)
         {
             DJIMotorOuterLoop(loader, ANGLE_LOOP);                              // 切换到角度环
             DJIMotorSetRef(loader, loader->measure.total_angle + ONE_BULLET_DELTA_ANGLE * REDUCTION_RATIO_LOADER); // 控制量增加一发弹丸的角度
@@ -267,11 +267,15 @@ void ShootTask()
 
         break;
         // 三连发,如果不需要后续可能删除
-    case LOAD_3_BULLET:
-        DJIMotorOuterLoop(loader, ANGLE_LOOP);                                     // 切换到角度环
-        DJIMotorSetRef(loader, loader->measure.total_angle + 3 * ONE_BULLET_DELTA_ANGLE); // 增加3发
-        hibernate_time = DWT_GetTimeline_ms();                                                  // 记录触发指令的时间
-        dead_time = 1000;                                                                       // 完成3发弹丸发射的时间
+    case LOAD_2_BULLET:
+        if (single_shot_lock == 0)
+        {
+            DJIMotorOuterLoop(loader, ANGLE_LOOP);                              // 切换到角度环
+            DJIMotorSetRef(loader, loader->measure.total_angle + 2 * ONE_BULLET_DELTA_ANGLE * REDUCTION_RATIO_LOADER); // 控制量增加一发弹丸的角度
+            hibernate_time = DWT_GetTimeline_ms();                                              // 记录触发指令的时间
+            dead_time = 300;// 完成1发弹丸发射的时间
+            single_shot_lock = 1;  //执行一次后立刻上锁
+        }                                                                   // 完成3发弹丸发射的时间
         break;
         // 连发模式,对速度闭环,射频后续修改为可变,目前固定为1Hz
         case LOAD_BURSTFIRE:

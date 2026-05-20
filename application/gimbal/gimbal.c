@@ -142,7 +142,7 @@ void GimbalInit() {
                     // .outer_loop_type = SPEED_LOOP,
                     // .close_loop_type = SPEED_LOOP,
                     .motor_reverse_flag = MOTOR_DIRECTION_NORMAL,
-                    .feedforward_flag = SPEED_FEEDFORWARD,
+                    //.feedforward_flag = SPEED_FEEDFORWARD,
             },
             .motor_type = DM4310,
             .DM_P_MAX = 3.14159,
@@ -191,7 +191,7 @@ void GimbalInit() {
                     .feedforward_flag = CURRENT_FEEDFORWARD,
             },
             .motor_type = DM4310,
-            .DM_P_MAX = 12.5f,
+            .DM_P_MAX = 3.14159f,
             .DM_V_MAX = 30,
             .DM_T_MAX = 10
     };
@@ -271,7 +271,7 @@ void GimbalTask() {
                 // //yaw_target_speed = Yaw_FF_Filter(yaw_target_speed);   //速度前馈滤波，代价是响应速度
                 // // 速度前馈
                 //yaw_speed_feedforward = Yaw_FF_Filter(yaw_target_speed);
-                yaw_speed_feedforward = gimbal_cmd_recv.vision_yaw_speed_ff*PI/180.0f;
+                yaw_speed_feedforward = gimbal_cmd_recv.vision_yaw_speed_ff*PI*0.1/180.0f;
 
             }
 

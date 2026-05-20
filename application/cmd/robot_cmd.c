@@ -66,6 +66,7 @@ static Publisher_t *shoot_cmd_pub;           // 发射控制消息发布者
 static Subscriber_t *shoot_feed_sub;         // 发射反馈信息订阅者
 static Shoot_Ctrl_Cmd_s shoot_cmd_send;      // 传递给发射的控制信息
 static Shoot_Upload_Data_s shoot_fetch_data; // 从发射获取的反馈信息
+static loader_mode_e loader_current_mode;
 
 static Robot_Status_e robot_state; // 机器人整体工作状态
 
@@ -134,6 +135,14 @@ void RobotCMDInit() {
 }
 
 
+
+/**
+ * @brief Pitch编码器辅助软限位，解决上下坡时坐标系变化导致陀螺仪限位失效的问题
+ *
+ * @note 1. 注意核对单位，current_ecd_deg与current_imu_deg单位应统一
+ *       2. 由于刚启动时云台未上电，读到的Pitch电机编码值为0，故应在所有的函数调用前加入lost_flag判断，防止引发异常
+ *       3. 此逻辑易与其他算法产生冲突，谨慎使用
+ */
 static void Pitch_Dynamic_Limit_Update() {
     float current_ecd_deg = gimbal_fetch_data.pitch_motor_single_round_angle * 180.0f / PI;
 
@@ -141,8 +150,8 @@ static void Pitch_Dynamic_Limit_Update() {
 
     float delta_angle = gimbal_cmd_send.pitch - current_imu_deg;
 
-    // 假设 IMU 抬头为正，且编码器抬头也为正。
-    // 如果编码器抬头时数值减小，这里必须改成减号
+    // 假设 IMU 抬头为正，且编码器抬头也为正
+    // 如果编码器抬头数值减小，这里改成减号
     float predicted_ecd_deg = current_ecd_deg + delta_angle;
 
     if (predicted_ecd_deg > PITCH_ECD_UPPER_LIMIT) {
@@ -294,18 +303,6 @@ static void death_check()
 //     }
 // }
 static void auto_aim_mode() {
-    // 如果按下按键 B，云台控制由鼠标输入决定
-    if (rc_data[TEMP].key_count[KEY_PRESS][Key_B] % 2 == 1 ) {
-        // 鼠标控制云台
-        gimbal_cmd_send.yaw -= (float) rc_data[TEMP].mouse.x / 660 * 4; // 系数待测
-        gimbal_cmd_send.pitch -= (float) rc_data[TEMP].mouse.y / 660 * 6;
-
-        // 限制云台俯仰角度
-        // if (gimbal_cmd_send.pitch >= PITCH_MAX_ANGLE) gimbal_cmd_send.pitch = PITCH_MAX_ANGLE;
-        // if (gimbal_cmd_send.pitch <= PITCH_MIN_ANGLE) gimbal_cmd_send.pitch = PITCH_MIN_ANGLE;
-        //chassis_cmd_send.heat_mode = HEAT_CLOSE;
-
-    } else {
         // 视觉控制云台
         if (vision_recv_data->yaw == 0 && vision_recv_data->pitch == 0) {
             aim_select.suggest_fire = 0;
@@ -338,9 +335,8 @@ static void auto_aim_mode() {
             }
             //chassis_cmd_send.heat_mode = HEAT_OPEN;
 
-
         }
-    }
+
 
     // 开火决策（在鼠标控制和视觉控制下都生效）
     if (vision_recv_data->distance != -1 && vision_recv_data->yaw != 0 && vision_recv_data->pitch != 0) {
@@ -723,10 +719,15 @@ static void VTMouseKeySet()
             shoot_cmd_send.shoot_mode = SHOOT_ON;
             if(loader_flag == 0){
                 shoot_cmd_send.loader_mode = LOAD_BURSTFIRE;
-                chassis_cmd_send.is_running_fire = 1;
-            } else if(loader_flag == 1){
+                chassis_cmd_send.shoot_mode = LOAD_BURSTFIRE;
+            }
+            else if(loader_flag == 1){
                 shoot_cmd_send.loader_mode = LOAD_1_BULLET;
-                chassis_cmd_send.is_running_fire = 0;
+                chassis_cmd_send.shoot_mode = LOAD_1_BULLET;
+            }
+            else if(loader_flag == 2){
+                shoot_cmd_send.loader_mode = LOAD_2_BULLET;
+                chassis_cmd_send.shoot_mode = LOAD_2_BULLET;
             }
             // if(loader_flag == 0 && press_left_last == press_left ){
             //     shoot_cmd_send.loader_mode = LOAD_BURSTFIRE;
@@ -768,23 +769,61 @@ static void VTMouseKeySet()
             shoot_cmd_send.aim_flag = 1;
             chassis_cmd_send.auto_aim_fire_suggestion = 1;
             shoot_cmd_send.shoot_mode = SHOOT_ON;
-            shoot_cmd_send.loader_mode = LOAD_BURSTFIRE;
-        } else
+            if(loader_flag == 0){
+                shoot_cmd_send.loader_mode = LOAD_BURSTFIRE;
+                chassis_cmd_send.shoot_mode = LOAD_BURSTFIRE;
+            }
+            else if(loader_flag == 1){
+                shoot_cmd_send.loader_mode = LOAD_1_BULLET;
+                chassis_cmd_send.shoot_mode = LOAD_1_BULLET;
+            }
+            else if(loader_flag == 2){
+                shoot_cmd_send.loader_mode = LOAD_2_BULLET;
+                chassis_cmd_send.shoot_mode = LOAD_2_BULLET;
+            }
+        }
+        else if (aim_select.suggest_fire == 0 && chassis_cmd_send.auto_aim_fire_suggest_mode ==IGNORE_FIRE_SUGGESTION && referee_VT_data->vt_ctrl[TEMP].mouse.left && shoot_cmd_send.friction_mode == FRICTION_ON)
+        {
+            shoot_cmd_send.aim_flag = 0;
+            chassis_cmd_send.auto_aim_fire_suggestion = 0;
+            shoot_cmd_send.shoot_mode = SHOOT_ON;
+            if(loader_flag == 0){
+                shoot_cmd_send.loader_mode = LOAD_BURSTFIRE;
+                chassis_cmd_send.shoot_mode = LOAD_BURSTFIRE;
+            }
+            else if(loader_flag == 1){
+                shoot_cmd_send.loader_mode = LOAD_1_BULLET;
+                chassis_cmd_send.shoot_mode = LOAD_1_BULLET;
+            }
+            else if(loader_flag == 2){
+                shoot_cmd_send.loader_mode = LOAD_2_BULLET;
+                chassis_cmd_send.shoot_mode = LOAD_2_BULLET;
+            }
+        }
+        else
         {
             shoot_cmd_send.aim_flag = 0;
             chassis_cmd_send.auto_aim_fire_suggestion = 0;
             shoot_cmd_send.loader_mode = LOAD_STOP;
         }
     }
-    switch (referee_VT_data->vt_ctrl[TEMP].key_count[KEY_PRESS][Key_B] % 2) // B键换单发模式
+    switch (referee_VT_data->vt_ctrl[TEMP].key_count[KEY_PRESS][Key_B] % 3) // B键换单发,双发，连发模式
     {
     case 0:
         loader_flag = 0;
-        chassis_cmd_send.is_running_fire = 1;
+        chassis_cmd_send.shoot_mode = LOAD_BURSTFIRE;
+        break;
+    case 1:
+        loader_flag = 1;
+        chassis_cmd_send.shoot_mode = LOAD_1_BULLET;
+        break;
+    case 2:
+        loader_flag = 2;
+        chassis_cmd_send.shoot_mode = LOAD_2_BULLET;
         break;
     default:
-        loader_flag = 1;
-        chassis_cmd_send.is_running_fire = 0;
+        loader_flag = 0;
+        chassis_cmd_send.shoot_mode = LOAD_BURSTFIRE;
         break;
     }
     switch (referee_VT_data->vt_ctrl[TEMP].key_count[KEY_PRESS][Key_G] % 2) // G键开关摩擦轮
@@ -830,19 +869,16 @@ static void VTMouseKeySet()
         break;
     }
 
-    switch (referee_VT_data->vt_ctrl[TEMP].key_count[KEY_PRESS][Key_X] % 3) // X键切换自瞄射击目标
+    switch (referee_VT_data->vt_ctrl[TEMP].key_count[KEY_PRESS][Key_X] % 2) // X键切换自瞄射击目标
     {
         case 0:
-            chassis_cmd_send.auto_aim_target_mode = ARMOR;
+            chassis_cmd_send.auto_aim_fire_suggest_mode = TRUST_FIRE_SUGGESTION;
         break;
         case 1:
-            chassis_cmd_send.auto_aim_target_mode = POWER_RUNE_BIG;
-        break;
-        case 2:
-            chassis_cmd_send.auto_aim_target_mode = POWER_RUNE_SMALL;
+            chassis_cmd_send.auto_aim_fire_suggest_mode = IGNORE_FIRE_SUGGESTION;
         break;
         default:
-            chassis_cmd_send.auto_aim_target_mode = ARMOR;
+            chassis_cmd_send.auto_aim_fire_suggest_mode = TRUST_FIRE_SUGGESTION;
         break;
     }
 
@@ -1073,7 +1109,7 @@ void RobotCMDTask() {
     // 设置视觉发送数据,还需增加加速度和角速度数据
     // VisionSetFlag(!chassis_fetch_data.enemy_color);
     //0装甲板打红，1装甲板打蓝，2小符红，3小符蓝，4打大符红，5大符蓝
-    VisionSetFlag(chassis_fetch_data.enemy_color + 2 * chassis_cmd_send.auto_aim_target_mode);
+    VisionSetFlag(chassis_fetch_data.enemy_color);
 
     //VisionSetFlag
     // //根据裁判系统反馈确定底盘功率上限
