@@ -26,14 +26,14 @@
 #define RAD_TO_DEG 180.0f / PI
 /* 机器人重要参数定义,注意根据不同机器人进行修改,浮点数需要以.0或f结尾,无符号以u结尾 */
 // 云台参数
-#define YAW_CHASSIS_ALIGN_RAD 0.7678// 云台和底盘对齐指向相同方向时的电机position值,若对云台有机械改动需要修改
+#define YAW_CHASSIS_ALIGN_RAD -1.634// 云台和底盘对齐指向相同方向时的电机position值,若对云台有机械改动需要修改
 #define YAW_ECD_GREATER_THAN_4096 0 // ALIGN_ECD值是否大于4096,是为1,否为0;用于计算云台偏转角度
 #define MAX_FF_SPEED_RAD 20
 #define PITCH_HORIZON_ECD 3742    // 云台处于水平位置时编码器值,若对云台有机械改动需要修改
 #define PITCH_MAX_ANGLE 41           // 云台竖直方向最大角度 (IMU)
-#define PITCH_MIN_ANGLE -18          // 云台竖直方向最小角度 (IMU)
+#define PITCH_MIN_ANGLE -14          // 云台竖直方向最小角度 (IMU)
 #define PITCH_MAX_ECD 2.95           // 云台竖直方向最大角度 (电机编码器)
-#define PITCH_MIN_ECD 1.87          // 云台竖直方向最小角度 (电机编码器)
+#define PITCH_MIN_ECD 1.92          // 云台竖直方向最小角度 (电机编码器)
 #define PITCH_ECD_UPPER_LIMIT  (PITCH_MAX_ECD * RAD_TO_DEG)  // 向上极点
 #define PITCH_ECD_LOWER_LIMIT  (PITCH_MIN_ECD * RAD_TO_DEG) // 向下极点
 
@@ -173,6 +173,7 @@ typedef enum
     LOAD_1_BULLET,  // 单发
     LOAD_2_BULLET,  // 双发
     LOAD_BURSTFIRE, // 连发
+    //LOAD_VISION,    //基于视觉开火建议的拨盘模式
 } loader_mode_e;
 typedef enum
 {
@@ -221,6 +222,7 @@ typedef struct
     chassis_mode_e chassis_mode;
     uint8_t cap_open;
     uint8_t heat_open; //发射热控标志位，1为热控开，0为热控关
+    uint8_t force_reset_flag; //强制软件复位
     // UI部分
     friction_mode_e friction_mode;
     uint8_t auto_aim_mode;
@@ -243,6 +245,7 @@ typedef struct
     float auto_aim_mode;
     float vision_yaw_speed_ff;
     float vision_pitch_speed_ff;
+    uint8_t DMMOTOR_Error_Clear_flag;
     gimbal_mode_e gimbal_mode;
 } Gimbal_Ctrl_Cmd_s;
 

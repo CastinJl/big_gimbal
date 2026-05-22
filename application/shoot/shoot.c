@@ -126,6 +126,35 @@ void ShootInit()
 }
 
 
+// //卡弹检测
+// void stalled_detect()
+// {
+//     static float last_detect_time = 0,detect_time = 0;
+//     static uint8_t stalled_cnt = 0;
+//
+//     detect_time = DWT_GetTimeline_ms();
+//     if(detect_time - last_detect_time < 30.0f)  // 800ms 检测一次
+//         return;
+//     if(shoot_cmd_recv.loader_mode == LOAD_BURSTFIRE)
+//     {
+//         if(abs(loader->measure.speed_aps)<=500)
+//         {
+//             stalled_cnt ++;
+//         }
+//         else
+//         {
+//             stalled_cnt = 0;
+//         }
+//         if (stalled_cnt >= 3)
+//         {
+//             shoot_feedback_data.stalled_flag = 1;
+//             stalled_cnt=0;
+//         }
+//         last_detect_time = DWT_GetTimeline_ms();
+//     }
+// }
+
+
 //卡弹检测
 void stalled_detect()
 {
@@ -153,9 +182,6 @@ void stalled_detect()
         last_detect_time = DWT_GetTimeline_ms();
     }
 }
-
-
-
 
 
 
@@ -202,7 +228,7 @@ void ShootTask()
         // 理论上稳态射速 = a/d (比如 40/10 = 4)。
         // 但因为摩擦轮阻力、拨盘空腔，你给电机设定 4发/秒，它可能实际只打出 2.5发。
         // 所以我们需要给稳态速度乘一个补偿系数，这个系数根据你这台车的机械阻力来定。
-        float compensate_factor = 1.1f; // 【重点调参】：如果你稳态热量还是掉，就把这个往上加(1.4, 1.5)；如果稳态热量超了，就减小(1.1)
+        float compensate_factor = 1.0f; // 【重点调参】：如果你稳态热量还是掉，就把这个往上加(1.4, 1.5)；如果稳态热量超了，就减小(1.1)
         float target_steady_speed = (a / d) * compensate_factor;
 
         // 2. 计算 10Hz 延迟的绝对安全刹车距离
@@ -287,6 +313,13 @@ void ShootTask()
         break;
         // 拨盘反转,对速度闭环,后续增加卡弹检测(通过裁判系统剩余热量反馈和电机电流)
         // 也有可能需要从switch-case中独立出来
+
+        // case LOAD_VISION:
+        //
+        //
+        //
+        //     break;
+
         case LOAD_REVERSE:
             single_shot_lock = 0;                  // 切入连发时，为了安全起见也清零锁
             DJIMotorOuterLoop(loader, SPEED_LOOP);

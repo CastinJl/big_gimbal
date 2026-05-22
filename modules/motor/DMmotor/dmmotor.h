@@ -91,6 +91,7 @@ void DMMotorOuterLoop(DMMotorInstance *motor,Closeloop_Type_e closeloop_type);
 
 void DMMotorEnable(DMMotorInstance *motor);
 void DMMotorSetMode(DMMotor_Mode_e cmd, DMMotorInstance *motor);
+void DMMotorClearError(DMMotorInstance *motor);
 void DMMotorStop(DMMotorInstance *motor);
 void DMMotorCaliEncoder(DMMotorInstance *motor);
 void DMMotorControlInit();

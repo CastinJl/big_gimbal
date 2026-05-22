@@ -67,6 +67,9 @@ static Subscriber_t *shoot_feed_sub;         // 发射反馈信息订阅者
 static Shoot_Ctrl_Cmd_s shoot_cmd_send;      // 传递给发射的控制信息
 static Shoot_Upload_Data_s shoot_fetch_data; // 从发射获取的反馈信息
 static loader_mode_e loader_current_mode;
+static float vision_fire_hold_time = 0;
+
+
 
 static Robot_Status_e robot_state; // 机器人整体工作状态
 
@@ -253,6 +256,11 @@ static void death_check()
     }
 }
 
+//软件复位函数
+void System_Reset(void) {
+    __set_FAULTMASK(1); //关闭所有中断
+    NVIC_SystemReset(); //进行软件复位
+}
 
 // static void update_ui_data() {
 //
@@ -782,7 +790,7 @@ static void VTMouseKeySet()
                 chassis_cmd_send.shoot_mode = LOAD_2_BULLET;
             }
         }
-        else if (aim_select.suggest_fire == 0 && chassis_cmd_send.auto_aim_fire_suggest_mode ==IGNORE_FIRE_SUGGESTION && referee_VT_data->vt_ctrl[TEMP].mouse.left && shoot_cmd_send.friction_mode == FRICTION_ON)
+        else if (chassis_cmd_send.auto_aim_fire_suggest_mode ==IGNORE_FIRE_SUGGESTION && referee_VT_data->vt_ctrl[TEMP].mouse.left && shoot_cmd_send.friction_mode == FRICTION_ON)
         {
             shoot_cmd_send.aim_flag = 0;
             chassis_cmd_send.auto_aim_fire_suggestion = 0;
@@ -1038,6 +1046,8 @@ void RobotCMDTask() {
     SubGetMessage(gimbal_feed_sub, &gimbal_fetch_data);
     gimbal_cmd_send.vision_yaw_speed_ff = 0;
     gimbal_cmd_send.vision_pitch_speed_ff = 0;
+    chassis_cmd_send.force_reset_flag = 0;
+    gimbal_cmd_send.DMMOTOR_Error_Clear_flag = 0;
     //update_ui_data();
     // 根据gimbal的反馈值计算云台和底盘正方向的夹角,不需要传参,通过static私有变量完成
     CalcOffsetAngle();
@@ -1060,6 +1070,25 @@ void RobotCMDTask() {
     {
         remote_flag = 0;
     }
+    if(VTremote_flag == 1 && referee_VT_data->vt_ctrl[TEMP].vt.mode_sw == 2 && referee_VT_data->vt_ctrl[TEMP].vt.wheel > 1500)
+    {
+
+                gimbal_cmd_send.DMMOTOR_Error_Clear_flag = 1;
+                robot_state = ROBOT_STOP;
+                gimbal_cmd_send.gimbal_mode = GIMBAL_ZERO_FORCE;
+                chassis_cmd_send.chassis_mode = CHASSIS_ZERO_FORCE;
+                shoot_cmd_send.shoot_mode = SHOOT_OFF;
+                shoot_cmd_send.friction_mode = FRICTION_OFF;
+                chassis_cmd_send.friction_mode = FRICTION_OFF;
+                shoot_cmd_send.loader_mode = LOAD_STOP;
+                chassis_cmd_send.force_reset_flag = 1;
+                LOGERROR("[CMD] Force Reset!");
+                static uint8_t reset_delay = 0;
+                reset_delay++;
+                if (reset_delay > 6) {
+                    System_Reset();
+                }
+    }
 
     if (robot_state != ROBOT_STOP ){
         // 根据遥控器左侧开关,确定当前使用的控制模式为遥控器调试还是键鼠
@@ -1069,7 +1098,12 @@ void RobotCMDTask() {
                 VTRemoteControlSet();
                 //VTMouseKeySet();
             if (referee_VT_data->vt_ctrl[TEMP].vt.mode_sw == 2)//图传遥控器挡位在S,键鼠控制
+            {
                 VTMouseKeySet();
+            }
+            // if (referee_VT_data->vt_ctrl[TEMP].vt.mode_sw == 0) {
+            //     Vision_Calibration();
+            // }
         }
         else if(remote_flag == 1 && VT_cotine == 0)
         {

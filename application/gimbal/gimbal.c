@@ -212,6 +212,10 @@ void GimbalTask() {
     // 获取云台控制数据
     // 后续增加未收到数据的处理
     SubGetMessage(gimbal_sub, &gimbal_cmd_recv);
+    if (gimbal_cmd_recv.DMMOTOR_Error_Clear_flag == 1) {
+        //DMMotorClearError(yaw_motor);
+        DMMotorClearError(pitch_motor);
+    }
     // if(gimba_IMU_data->Pitch > 20.0f)
     // {
     //     pitch_motor->motor_controller.speed_PID.Kp = 1.6f;
