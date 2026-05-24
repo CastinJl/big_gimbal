@@ -68,6 +68,7 @@ static Shoot_Ctrl_Cmd_s shoot_cmd_send;      // 传递给发射的控制信息
 static Shoot_Upload_Data_s shoot_fetch_data; // 从发射获取的反馈信息
 static loader_mode_e loader_current_mode;
 static float vision_fire_hold_time = 0;
+static uint16_t friction_speed = 37000;
 
 
 
@@ -112,7 +113,7 @@ void RobotCMDInit() {
     gimbal_feed_sub = SubRegister("gimbal_feed", sizeof(Gimbal_Upload_Data_s));
     shoot_cmd_pub = PubRegister("shoot_cmd", sizeof(Shoot_Ctrl_Cmd_s));
     shoot_feed_sub = SubRegister("shoot_feed", sizeof(Shoot_Upload_Data_s));
-
+    shoot_cmd_send.friction_speed = 37000;
 #ifdef ONE_BOARD // 双板兼容
     chassis_cmd_pub = PubRegister("chassis_cmd", sizeof(Chassis_Ctrl_Cmd_s));
     chassis_feed_sub = SubRegister("chassis_feed", sizeof(Chassis_Upload_Data_s));
@@ -233,6 +234,31 @@ static void CalcOffsetAngle() {
     gimbal_cmd_send.offset_angle = offset;
 
 }
+
+static void Vision_UI_Update() {
+    if (vision_recv_data->distance != -1 && vision_recv_data->yaw != 0 && vision_recv_data->pitch != 0) {
+        chassis_cmd_send.vision_find_target_flag = 1;
+    }
+    else {
+        chassis_cmd_send.vision_find_target_flag = 0;
+    }
+    // 开火决策（在鼠标控制和视觉控制下都生效）
+    if (vision_recv_data->distance != -1 && vision_recv_data->yaw != 0 && vision_recv_data->pitch != 0) {
+        //chassis_cmd_send.vision_find_target_flag = 1;
+        if (vision_recv_data->mode == 1) {
+            aim_select.suggest_fire = 1;
+            chassis_cmd_send.auto_aim_fire_suggestion = 1;
+        } else {
+            aim_select.suggest_fire = 0;
+            chassis_cmd_send.auto_aim_fire_suggestion = 0;
+        }
+    } else {
+        aim_select.suggest_fire = 0;
+        chassis_cmd_send.auto_aim_fire_suggestion = 0;
+        //chassis_cmd_send.vision_find_target_flag = 0;
+    }
+}
+
 //功能：死亡后清除小陀螺的状态
 // static void death_check()
 // {
@@ -889,7 +915,22 @@ static void VTMouseKeySet()
             chassis_cmd_send.auto_aim_fire_suggest_mode = TRUST_FIRE_SUGGESTION;
         break;
     }
-
+    if(referee_VT_data->vt_ctrl[TEMP].key_count[KEY_PRESS][Key_Z]>=1) // Z键削减摩擦轮转速
+    {
+        friction_speed = friction_speed - 500;
+        if (friction_speed<30000) friction_speed = 30000;
+        shoot_cmd_send.friction_speed = friction_speed;
+        //chassis_cmd_send.friction_speed = friction_speed;
+        referee_VT_data->vt_ctrl[TEMP].key_count[KEY_PRESS][Key_Z]=0;
+    }
+    if(referee_VT_data->vt_ctrl[TEMP].key_count[KEY_PRESS][Key_C]>=1) // C键增加摩擦轮转速
+    {
+        friction_speed = friction_speed + 500;
+        if (friction_speed>38000) friction_speed = 38000;
+        shoot_cmd_send.friction_speed = friction_speed;
+        //chassis_cmd_send.friction_speed = friction_speed;
+        referee_VT_data->vt_ctrl[TEMP].key_count[KEY_PRESS][Key_C]=0;
+    }
     if (referee_VT_data->vt_ctrl[TEMP].key[KEY_PRESS].shift == 0) {
         switch (referee_VT_data->vt_ctrl[TEMP].key[KEY_PRESS].ctrl) //按住ctrl反向小陀螺
         {
@@ -1048,6 +1089,7 @@ void RobotCMDTask() {
     gimbal_cmd_send.vision_pitch_speed_ff = 0;
     chassis_cmd_send.force_reset_flag = 0;
     gimbal_cmd_send.DMMOTOR_Error_Clear_flag = 0;
+    Vision_UI_Update();
     //update_ui_data();
     // 根据gimbal的反馈值计算云台和底盘正方向的夹角,不需要传参,通过static私有变量完成
     CalcOffsetAngle();
