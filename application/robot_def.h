@@ -222,7 +222,7 @@ typedef struct
     chassis_mode_e chassis_mode;
     uint8_t cap_open;
     uint8_t heat_open; //发射热控标志位，1为热控开，0为热控关
-    uint8_t force_reset_flag; //强制软件复位
+    uint8_t force_reset_flag;//强制软件复位
     // UI部分
     friction_mode_e friction_mode;
     uint8_t auto_aim_mode;
@@ -232,6 +232,7 @@ typedef struct
     uint8_t chassis_rotate_reverse_flag;
     auto_aim_fire_suggest_mode_e auto_aim_fire_suggest_mode;
     uint8_t vision_find_target_flag; //视觉是否找到目标的标志位 1为找到 0为未找到
+    uint16_t friction_speed; //摩擦轮速度
 } Chassis_Ctrl_Cmd_s;
 
 // cmd发布的云台控制数据,由gimbal订阅
@@ -258,10 +259,8 @@ typedef struct
     lid_mode_e lid_mode;
     friction_mode_e friction_mode;
     heat_mode_e heat_mode;
-    Bullet_Speed_e bullet_speed; // 弹速枚举
     float shoot_rate; // 连续发射的射频,unit per s,发/秒
     uint16_t friction_speed;
-
     uint16_t heat;       // 实时热量
     uint16_t heat_limit;  // 热量上限
     uint16_t heat_cool;  // 热量每秒冷却值
@@ -286,7 +285,7 @@ typedef struct
     uint8_t dead_state;
     uint16_t heat;
     float real_wz;
-    Enemy_Color_e enemy_color;   // 0 for blue, 1 for red
+    Enemy_Color_e enemy_color;   // 0 是瞄准蓝方 , 1 是瞄准红方
     uint16_t cooling_speed;
 } Chassis_Upload_Data_s;
 
