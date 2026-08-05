@@ -21,6 +21,22 @@ void DMMotorSetMode(DMMotor_Mode_e cmd, DMMotorInstance *motor)
     CANTransmit(motor->motor_can_instance, 3);
 }
 
+void DMMotorClearError(DMMotorInstance *motor) {
+    motor->motor_can_instance->tx_buff[0] = 0xff;
+    motor->motor_can_instance->tx_buff[1] = 0xff;
+    motor->motor_can_instance->tx_buff[2] = 0xff;
+    motor->motor_can_instance->tx_buff[3] = 0xff;
+    motor->motor_can_instance->tx_buff[4] = 0xff;
+    motor->motor_can_instance->tx_buff[5] = 0xff;
+    motor->motor_can_instance->tx_buff[6] = 0xff;
+    motor->motor_can_instance->tx_buff[7] = 0xfb;// 清除错误命令
+
+    if((motor->lost_flag == 0)&&motor->measure.state)
+    {
+        CANTransmit(motor->motor_can_instance, 1);
+    }
+}
+
 static void DMMotorDecode(CANInstance *motor_can)
 {
     uint16_t tmp; // 用于暂存解析值,稍后转换成float数据,避免多次创建临时变量

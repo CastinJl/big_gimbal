@@ -107,34 +107,35 @@ static void VTJudgeReadData(uint8_t *buff)
 
             //  位域的按键值解算,直接memcpy即可,注意小端低字节在前,即lsb在第一位,msb在最后
             *(uint16_t *) &VT_info.vt_ctrl[TEMP].key[KEY_PRESS] = (uint16_t) ((buff[17] | buff[18] <<8) & 0xffff);
-            if (VT_info.vt_ctrl[TEMP].key[KEY_PRESS].ctrl) // ctrl键按下
-                VT_info.vt_ctrl[TEMP].key[KEY_PRESS_WITH_CTRL] = VT_info.vt_ctrl[TEMP].key[KEY_PRESS];
-            else
-                memset(&VT_info.vt_ctrl[TEMP].key[KEY_PRESS_WITH_CTRL], 0, sizeof(Key_vt));
-            if (VT_info.vt_ctrl[TEMP].key[KEY_PRESS].shift) // shift键按下
-                VT_info.vt_ctrl[TEMP].key[KEY_PRESS_WITH_SHIFT] = VT_info.vt_ctrl[TEMP].key[KEY_PRESS];
-            else
-                memset(&VT_info.vt_ctrl[TEMP].key[KEY_PRESS_WITH_SHIFT], 0, sizeof(Key_vt));
+            // if (VT_info.vt_ctrl[TEMP].key[KEY_PRESS].ctrl) // ctrl键按下
+            //     VT_info.vt_ctrl[TEMP].key[KEY_PRESS_WITH_CTRL] = VT_info.vt_ctrl[TEMP].key[KEY_PRESS];
+            // else
+            //     memset(&VT_info.vt_ctrl[TEMP].key[KEY_PRESS_WITH_CTRL], 0, sizeof(Key_vt));
+            // if (VT_info.vt_ctrl[TEMP].key[KEY_PRESS].shift) // shift键按下
+            //     VT_info.vt_ctrl[TEMP].key[KEY_PRESS_WITH_SHIFT] = VT_info.vt_ctrl[TEMP].key[KEY_PRESS];
+            // else
+            //     memset(&VT_info.vt_ctrl[TEMP].key[KEY_PRESS_WITH_SHIFT], 0, sizeof(Key_vt));
 
             uint16_t key_now = VT_info.vt_ctrl[TEMP].key[KEY_PRESS].keys,               // 当前按键是否按下
-            key_last = VT_info.vt_ctrl[LAST].key[KEY_PRESS].keys,                       // 上一次按键是否按下
-            key_with_ctrl = VT_info.vt_ctrl[TEMP].key[KEY_PRESS_WITH_CTRL].keys,        // 当前ctrl组合键是否按下
-            key_with_shift = VT_info.vt_ctrl[TEMP].key[KEY_PRESS_WITH_SHIFT].keys,      //  当前shift组合键是否按下
-            key_last_with_ctrl = VT_info.vt_ctrl[LAST].key[KEY_PRESS_WITH_CTRL].keys,   // 上一次ctrl组合键是否按下
-            key_last_with_shift = VT_info.vt_ctrl[LAST].key[KEY_PRESS_WITH_SHIFT].keys; // 上一次shift组合键是否按下
+            key_last = VT_info.vt_ctrl[LAST].key[KEY_PRESS].keys;                      // 上一次按键是否按下
+            // key_with_ctrl = VT_info.vt_ctrl[TEMP].key[KEY_PRESS_WITH_CTRL].keys,        // 当前ctrl组合键是否按下
+            // key_with_shift = VT_info.vt_ctrl[TEMP].key[KEY_PRESS_WITH_SHIFT].keys,      //  当前shift组合键是否按下
+            // key_last_with_ctrl = VT_info.vt_ctrl[LAST].key[KEY_PRESS_WITH_CTRL].keys,   // 上一次ctrl组合键是否按下
+            // key_last_with_shift = VT_info.vt_ctrl[LAST].key[KEY_PRESS_WITH_SHIFT].keys; // 上一次shift组合键是否按下
 
             for (uint16_t i = 0, j = 0x1; i < 16; j <<= 1, i++) {
-                if (i == 4 || i == 5) // 4,5位为ctrl和shift,直接跳过
-                    continue;
+                // if (i == 4 || i == 5) // 4,5位为ctrl和shift,直接跳过
+                //     continue;
                 // 如果当前按键按下,上一次按键没有按下,且ctrl和shift组合键没有按下,则按键按下计数加1(检测到上升沿)
-                if ((key_now & j) && !(key_last & j) && !(key_with_ctrl & j) && !(key_with_shift & j))
+                //if ((key_now & j) && !(key_last & j) && !(key_with_ctrl & j) && !(key_with_shift & j))
+                if ((key_now & j) && !(key_last & j))
                     VT_info.vt_ctrl[TEMP].key_count[KEY_PRESS][i]++;
-                // 当前ctrl组合键按下,上一次ctrl组合键没有按下,则ctrl组合键按下计数加1(检测到上升沿)
-                if ((key_with_ctrl & j) && !(key_last_with_ctrl & j))
-                    VT_info.vt_ctrl[TEMP].key_count[KEY_PRESS_WITH_CTRL][i]++;
-                // 当前shift组合键按下,上一次shift组合键没有按下,则shift组合键按下计数加1(检测到上升沿)
-                if ((key_with_shift & j) && !(key_last_with_shift & j))
-                    VT_info.vt_ctrl[TEMP].key_count[KEY_PRESS_WITH_SHIFT][i]++;
+                // // 当前ctrl组合键按下,上一次ctrl组合键没有按下,则ctrl组合键按下计数加1(检测到上升沿)
+                // if ((key_with_ctrl & j) && !(key_last_with_ctrl & j))
+                //     VT_info.vt_ctrl[TEMP].key_count[KEY_PRESS_WITH_CTRL][i]++;
+                // // 当前shift组合键按下,上一次shift组合键没有按下,则shift组合键按下计数加1(检测到上升沿)
+                // if ((key_with_shift & j) && !(key_last_with_shift & j))
+                //     VT_info.vt_ctrl[TEMP].key_count[KEY_PRESS_WITH_SHIFT][i]++;
             }
 
             memcpy(&VT_info.vt_ctrl[LAST], &VT_info.vt_ctrl[TEMP], sizeof(VT_ctrl_t)); // 保存上一次的数据,用于按键持续按下和切换的判断
@@ -153,6 +154,12 @@ static void VTRxCallback()
 static void VTLostCallback(void *arg)
 {
     VT_info.vt_ctrl->vt.wheel = 0;
+    VT_info.vt_ctrl[TEMP].key->w = 0;
+    VT_info.vt_ctrl[TEMP].key->s = 0;
+    VT_info.vt_ctrl[TEMP].key->a = 0;
+    VT_info.vt_ctrl[TEMP].key->d = 0;
+    VT_info.vt_ctrl[TEMP].mouse.left = 0;
+
     USARTServiceInit(VT_usart_instance);
     LOGWARNING("[rm_vt] lost vt data");
 }

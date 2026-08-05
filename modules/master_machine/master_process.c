@@ -25,7 +25,7 @@ static DaemonInstance *vision_daemon_instance;
 //    send_data.work_mode = work_mode;
 //    send_data.bullet_speed = bullet_speed;
 //}
-void VisionSetFlag(Enemy_Color_e enemy_color)
+void VisionSetFlag(uint8_t enemy_color)
 {
     send_data.mode = enemy_color;
     send_data.reserved = 0;
@@ -183,6 +183,8 @@ void VisionSend()
     // send_data.mode = 3;
     //    VisionSetFlag(data->detect_color);
     //    VisionSetAim(data->aim_x,data->aim_y,data->aim_z);
+    send_data.empty1 = 0;
+    send_data.empty2 = 0;
     send_data.checksum = crc_8(&send_data.header,sizeof(send_buffer)-2);
     // send_buffer[0] = send_data.header;
     //send_buffer[15] = send_data.tail;

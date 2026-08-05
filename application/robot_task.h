@@ -69,10 +69,10 @@ __attribute__((noreturn)) void StartINSTASK(void const *argument)
         // 1kHz
         ins_start = DWT_GetTimeline_ms();
         INS_Task();
+        VisionSend(); // 解算完成后发送视觉数据,但是当前的实现不太优雅,后续若添加硬件触发需要重新考虑结构的组织
         ins_dt = DWT_GetTimeline_ms() - ins_start;
         if (ins_dt > 1)
             LOGERROR("[freeRTOS] INS Task is being DELAY! dt = [%f]", &ins_dt);
-        VisionSend(); // 解算完成后发送视觉数据,但是当前的实现不太优雅,后续若添加硬件触发需要重新考虑结构的组织
         osDelay(1);
     }
 }
@@ -153,8 +153,8 @@ __attribute__((noreturn)) void StartROBOCMDTASK(void const *argument)
         cmd_start = DWT_GetTimeline_ms();
         CMDTask();
         cmd_dt = DWT_GetTimeline_ms() - cmd_start;
-        if (cmd_dt > 1)
+        if (cmd_dt > 5)
             LOGERROR("[freeRTOS] CMD Task is being DELAY! dt = [%f]", &cmd_dt);
-        osDelay(1);
+        osDelay(5);
     }
 }

@@ -64,6 +64,7 @@ typedef struct
     Motor_Working_Type_e stop_flag; // 启停标志
 
     DaemonInstance* daemon;
+    uint8_t lost_flag;//丢失标志
     uint32_t feed_cnt;
     float dt;
 } DJIMotorInstance;

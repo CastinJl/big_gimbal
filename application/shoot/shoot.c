@@ -7,14 +7,7 @@
 #include "general_def.h"
 #include "servo_motor.h"
 
-#define CURRENT_QUEUE_SIZE     100     // 电流窗口队列长度
-#define DEFAULT_Q_THRESHOLD    45.0f  // 初始电流差值阈值（需校准）
 #define HEAT_PER_BULLET        10.0f  // 每发子弹热量增量
-#define MAX_ALLOWED_HEAT       100.0f // 最大允许热量
-#define COOLING_RATE_SCALE     0.005f // 冷却系数毫秒转换
-
-#define Heat_Limit_Slowdown_Threshold     50.0f // 冷却系数毫秒转换
-#define Heat_Limit_Ceasefire_Threshold    20.0f // 冷却系数毫秒转换
 
 /* 对于双发射机构的机器人,将下面的数据封装成结构体即可,生成两份shoot应用实例 */
 static DJIMotorInstance *friction_l, *friction_r, *loader; // 拨盘电机
@@ -117,7 +110,7 @@ void ShootInit()
                     .motor_reverse_flag = MOTOR_DIRECTION_NORMAL, // 注意方向设置为拨盘的拨出的击发方向
                     //.feedback_reverse_flag = FEEDBACK_DIRECTION_REVERSE,
             },
-            .motor_type = M3508 // 英雄使用m3508
+            .motor_type = M3508 // 步兵使用M3508
     };
     loader = DJIMotorInit(&loader_config);
     shoot_pub = PubRegister("shoot_feed", sizeof(Shoot_Upload_Data_s));
@@ -153,9 +146,6 @@ void stalled_detect()
         last_detect_time = DWT_GetTimeline_ms();
     }
 }
-
-
-
 
 
 
@@ -198,39 +188,39 @@ void ShootTask()
         float m = shoot_cmd_recv.heat_limit - shoot_cmd_recv.heat; // 剩余热量
         float d = HEAT_PER_BULLET; // 单发热量
 
-        // 1. 稳态机械补偿 (解决热量往下掉的问题)
+        // 稳态机械补偿
         // 理论上稳态射速 = a/d (比如 40/10 = 4)。
         // 但因为摩擦轮阻力、拨盘空腔，你给电机设定 4发/秒，它可能实际只打出 2.5发。
         // 所以我们需要给稳态速度乘一个补偿系数，这个系数根据你这台车的机械阻力来定。
-        float compensate_factor = 1.3f; // 【重点调参】：如果你稳态热量还是掉，就把这个往上加(1.4, 1.5)；如果稳态热量超了，就减小(1.1)
+        float compensate_factor = 1.0f; // 如果稳态热量掉，就把这个往上加(1.4, 1.5)；如果稳态热量超了，就减小(1.1)
         float target_steady_speed = (a / d) * compensate_factor;
 
-        // 2. 计算 10Hz 延迟的绝对安全刹车距离
+        // 计算 10Hz 延迟的安全余量
         // 裁判系统 100ms(0.1s) 刷新一次。在这 0.1s 内，以最高射速会打出多少热量？
         // max_mech_speed * 0.1s * d。例如：25 * 0.1 * 10 = 25 热量。
         // 我们再加上 5 作为容错底线。
         float safe_buffer = (max_mech_speed * 0.1f * d) + 5.0f;
 
-        // 减速缓冲带：距离安全底线还有 30 热量时，开始线性收油门
+        // 减速缓冲带：距离安全底线还有 30 热量时，开始线性收转速
         float decelerate_buffer = safe_buffer + 30.0f;
 
-        // 3. 状态机判断输出
+        // 状态机判断输出
         if (m < d) {
             // 极限保护：连1发子弹的热量都不够了，必须停！
             shoot_speed = 0.0f;
         }
         else if (m > decelerate_buffer) {
-            // 完美爆发期：距离上限还很远，无脑输出最高射速！ (解决你看到的 11 射速问题)
+            // 爆发期：距离上限还很远，输出最高射速
             shoot_speed = max_mech_speed;
         }
         else if (m > safe_buffer) {
-            // 减速刹车期：距离上限近了，为了防止 100ms 延迟导致超标，平滑降低射速
+            // 减速期：距离上限近了，为了防止 100ms 延迟导致超标，平滑降低射速
             // 把剩余热量在 [safe_buffer, decelerate_buffer] 映射到 [target_steady_speed, max_mech_speed]
             float ratio = (m - safe_buffer) / (decelerate_buffer - safe_buffer);
             shoot_speed = target_steady_speed + ratio * (max_mech_speed - target_steady_speed);
         }
         else {
-            // 稳态压制期：已经贴近危险边缘，严格输出带补偿的冷却速率
+            // 稳态期：已经贴近边缘，输出带补偿的冷却速率
             shoot_speed = target_steady_speed;
         }
     }
@@ -240,7 +230,6 @@ void ShootTask()
     }
 
 
-    // 如果上一次触发单发或3发指令的时间加上不应期仍然大于当前时间(尚未休眠完毕),直接返回即可
     // 单发模式主要提供给能量机关激活使用(以及英雄的射击大部分处于单发)
     if (hibernate_time + dead_time > DWT_GetTimeline_ms())
         return;
@@ -256,7 +245,7 @@ void ShootTask()
         break;
         // 单发模式,根据鼠标按下的时间,触发一次之后需要进入不响应输入的状态(否则按下的时间内可能多次进入,导致多次发射)
     case LOAD_1_BULLET:           // 激活能量机关/干扰对方用,英雄用
-        if (single_shot_lock == 0)             // 【关键点2】：如果没有上锁，才执行发弹
+        if (single_shot_lock == 0)
         {
             DJIMotorOuterLoop(loader, ANGLE_LOOP);                              // 切换到角度环
             DJIMotorSetRef(loader, loader->measure.total_angle + ONE_BULLET_DELTA_ANGLE * REDUCTION_RATIO_LOADER); // 控制量增加一发弹丸的角度
@@ -266,23 +255,25 @@ void ShootTask()
         }
 
         break;
-        // 三连发,如果不需要后续可能删除
-    case LOAD_3_BULLET:
-        DJIMotorOuterLoop(loader, ANGLE_LOOP);                                     // 切换到角度环
-        DJIMotorSetRef(loader, loader->measure.total_angle + 3 * ONE_BULLET_DELTA_ANGLE); // 增加3发
-        hibernate_time = DWT_GetTimeline_ms();                                                  // 记录触发指令的时间
-        dead_time = 1000;                                                                       // 完成3发弹丸发射的时间
+        // 二连发
+    case LOAD_2_BULLET:
+        if (single_shot_lock == 0)
+        {
+            DJIMotorOuterLoop(loader, ANGLE_LOOP);                              // 切换到角度环
+            DJIMotorSetRef(loader, loader->measure.total_angle + 2 * ONE_BULLET_DELTA_ANGLE * REDUCTION_RATIO_LOADER); // 控制量增加一发弹丸的角度
+            hibernate_time = DWT_GetTimeline_ms();                                              // 记录触发指令的时间
+            dead_time = 300;// 完成1发弹丸发射的时间
+            single_shot_lock = 1;  //执行一次后立刻上锁
+        }                                                                   // 完成3发弹丸发射的时间
         break;
-        // 连发模式,对速度闭环,射频后续修改为可变,目前固定为1Hz
+        // 连发,对速度闭环,射频后续修改为可变,目前固定为1Hz
         case LOAD_BURSTFIRE:
             single_shot_lock = 0;                  // 切入连发时，为了安全起见也清零锁
             DJIMotorOuterLoop(loader, SPEED_LOOP);
             DJIMotorSetRef(loader, shoot_speed * 360 * REDUCTION_RATIO_LOADER / 9);
-        // DJIMotorSetRef(loader, 20 * 360 * REDUCTION_RATIO_LOADER / 9);
         // x颗/秒换算成速度: 已知一圈的载弹量,由此计算出1s需要转的角度,注意换算角速度(DJIMotor的速度单位是angle per second)
         break;
-        // 拨盘反转,对速度闭环,后续增加卡弹检测(通过裁判系统剩余热量反馈和电机电流)
-        // 也有可能需要从switch-case中独立出来
+
         case LOAD_REVERSE:
             single_shot_lock = 0;                  // 切入连发时，为了安全起见也清零锁
             DJIMotorOuterLoop(loader, SPEED_LOOP);
@@ -299,34 +290,14 @@ void ShootTask()
     // 确定是否开启摩擦轮,后续可能修改为键鼠模式下始终开启摩擦轮(上场时建议一直开启)
     if (shoot_cmd_recv.friction_mode == FRICTION_ON)
     {
-        // 根据收到的弹速设置设定摩擦轮电机参考值,需实测后填入
-        //        switch (shoot_cmd_recv.bullet_speed)
-        //        {
-        //            case SMALL_AMU_15:
-        //                DJIMotorSetRef(friction_l, 0);
-        //                DJIMotorSetRef(friction_r, 0);
-        //                break;
-        //            case SMALL_AMU_18:
-        //                DJIMotorSetRef(friction_l, 0);
-        //                DJIMotorSetRef(friction_r, 0);
-        //                break;
-        //            case SMALL_AMU_30:
-        //                DJIMotorSetRef(friction_l, 0);
-        //                DJIMotorSetRef(friction_r, 0);
-        //                break;
-        // default: // 当前为了调试设定的默认值4000,因为还没有加入裁判系统无法读取弹速.
-        DJIMotorSetRef(friction_l, 41000);
-        DJIMotorSetRef(friction_r, 41000);
-                       // break;
-        //        }
+        DJIMotorSetRef(friction_l, 35000);
+        DJIMotorSetRef(friction_r, 35000);
     }
     else // 关闭摩擦轮
     {
         DJIMotorSetRef(friction_l, 0);
         DJIMotorSetRef(friction_r, 0);
     }
-
-
         stalled_detect();
 
     // 反馈数据,目前暂时没有要设定的反馈数据,后续可能增加应用离线监测以及卡弹反馈

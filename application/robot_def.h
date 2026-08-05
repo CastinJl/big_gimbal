@@ -23,15 +23,19 @@
 
 #define VISION_USE_VCP  // 使用虚拟串口发送视觉数据
 // #define VISION_USE_UART // 使用串口发送视觉数据
-
+#define RAD_TO_DEG 180.0f / PI
 /* 机器人重要参数定义,注意根据不同机器人进行修改,浮点数需要以.0或f结尾,无符号以u结尾 */
 // 云台参数
-#define YAW_CHASSIS_ALIGN_RAD -1.237// 云台和底盘对齐指向相同方向时的电机position值,若对云台有机械改动需要修改
+#define YAW_CHASSIS_ALIGN_RAD -1.634// 云台和底盘对齐指向相同方向时的电机position值,若对云台有机械改动需要修改
 #define YAW_ECD_GREATER_THAN_4096 0 // ALIGN_ECD值是否大于4096,是为1,否为0;用于计算云台偏转角度
 #define MAX_FF_SPEED_RAD 20
 #define PITCH_HORIZON_ECD 3742    // 云台处于水平位置时编码器值,若对云台有机械改动需要修改
-#define PITCH_MAX_ANGLE 35           // 云台竖直方向最大角度 (注意反馈如果是陀螺仪，则填写陀螺仪的角度)
-#define PITCH_MIN_ANGLE -21          // 云台竖直方向最小角度 (注意反馈如果是陀螺仪，则填写陀螺仪的角度)
+#define PITCH_MAX_ANGLE 41           // 云台竖直方向最大角度 (IMU)
+#define PITCH_MIN_ANGLE -14          // 云台竖直方向最小角度 (IMU)
+#define PITCH_MAX_ECD 2.95           // 云台竖直方向最大角度 (电机编码器)
+#define PITCH_MIN_ECD 1.92          // 云台竖直方向最小角度 (电机编码器)
+#define PITCH_ECD_UPPER_LIMIT  (PITCH_MAX_ECD * RAD_TO_DEG)  // 向上极点
+#define PITCH_ECD_LOWER_LIMIT  (PITCH_MIN_ECD * RAD_TO_DEG) // 向下极点
 
 #define PITCH_MAX_RELATIVE_ANGLE 123        // 云台相对底盘最大角度
 #define PITCH_MIN_RELATIVE_ANGLE 80          // 云台相对底盘最小角度
@@ -88,17 +92,7 @@ typedef struct {
     int front, rear;    // 头尾指针
 } CurrentQueue;
 
-typedef struct {
-    FSM_State state;            // 当前状态
-    CurrentQueue current_q;      // 电流差值队列
-    float q_sum;                // 队列总和
-    float last_q_sum;                // 队列总和
-    float error_q_sum;                // 队列总和
 
-    float now_heat;             // 当前热量
-    uint32_t total_ammo;        // 总弹药计数
-    float q_threshold;          // 触发阈值（可动态调整）
-} HeatDetector;
 typedef struct {
     // 状态跟踪
     uint8_t last_trigger_state;   // 上一次触发状态
@@ -142,7 +136,8 @@ typedef enum
         CHASSIS_ROTATE,            // 小陀螺模式
         CHASSIS_NO_FOLLOW,         // 不跟随，允许全向平移
         CHASSIS_FOLLOW_GIMBAL_YAW, // 跟随模式，底盘叠加角度环控制
-        CHASSIS_SIDEWAYS,          // 侧向
+        CHASSIS_ONEBOARD_NO_FOLLOW,          // 侧向
+    CHASSIS_WAVE_ROAD
 } chassis_mode_e;
 
 // 云台模式设置
@@ -176,14 +171,31 @@ typedef enum
     LOAD_STOP = 0,  // 停止发射
     LOAD_REVERSE,   // 反转
     LOAD_1_BULLET,  // 单发
-    LOAD_3_BULLET,  // 三发
+    LOAD_2_BULLET,  // 双发
     LOAD_BURSTFIRE, // 连发
+    //LOAD_VISION,    //基于视觉开火建议的拨盘模式
 } loader_mode_e;
 typedef enum
 {
     HEAT_OPEN , // 热控打开
     HEAT_CLOSE, // 热控关闭
 }heat_mode_e;
+
+//自瞄模式，决定是打大符，小符还是装甲板
+typedef enum
+{
+    ARMOR,//装甲板
+    POWER_RUNE_SMALL,//小符
+    POWER_RUNE_BIG,//大符
+}auto_aim_target_mode_e;
+
+//开火建议模式，决定是否采信视觉的开火建议
+typedef enum
+{
+    TRUST_FIRE_SUGGESTION,  //只有视觉传来开火建议才发弹
+    IGNORE_FIRE_SUGGESTION  //忽略开火建议，只有目标跟随，发弹听从操作手
+}auto_aim_fire_suggest_mode_e;
+
 // 功率限制,从裁判系统获取,是否有必要保留?
 typedef struct
 {
@@ -210,13 +222,17 @@ typedef struct
     chassis_mode_e chassis_mode;
     uint8_t cap_open;
     uint8_t heat_open; //发射热控标志位，1为热控开，0为热控关
+    uint8_t force_reset_flag;//强制软件复位
     // UI部分
     friction_mode_e friction_mode;
     uint8_t auto_aim_mode;
     uint8_t auto_aim_fire_suggestion;
-    uint8_t is_running_fire; //单发、连发标志位，1为连发，0为单发
+    loader_mode_e shoot_mode; //单发、连发标志位，1为连发，0为单发
     uint8_t ui_refresh;
     uint8_t chassis_rotate_reverse_flag;
+    auto_aim_fire_suggest_mode_e auto_aim_fire_suggest_mode;
+    uint8_t vision_find_target_flag; //视觉是否找到目标的标志位 1为找到 0为未找到
+    uint16_t friction_speed; //摩擦轮速度
 } Chassis_Ctrl_Cmd_s;
 
 // cmd发布的云台控制数据,由gimbal订阅
@@ -231,6 +247,7 @@ typedef struct
     float auto_aim_mode;
     float vision_yaw_speed_ff;
     float vision_pitch_speed_ff;
+    uint8_t DMMOTOR_Error_Clear_flag;
     gimbal_mode_e gimbal_mode;
 } Gimbal_Ctrl_Cmd_s;
 
@@ -242,9 +259,8 @@ typedef struct
     lid_mode_e lid_mode;
     friction_mode_e friction_mode;
     heat_mode_e heat_mode;
-    Bullet_Speed_e bullet_speed; // 弹速枚举
     float shoot_rate; // 连续发射的射频,unit per s,发/秒
-
+    uint16_t friction_speed;
     uint16_t heat;       // 实时热量
     uint16_t heat_limit;  // 热量上限
     uint16_t heat_cool;  // 热量每秒冷却值
@@ -263,13 +279,13 @@ typedef struct
 #if defined(CHASSIS_BOARD) || defined(GIMBAL_BOARD) // 非单板的时候底盘还将imu数据回传(若有必要)
     // attitude_t chassis_imu_data;
 #endif
-    Bullet_Speed_e bullet_speed;
+    float bullet_speed;
     uint8_t robot_level;
     uint16_t heat_limit;
     uint8_t dead_state;
     uint16_t heat;
     float real_wz;
-    Enemy_Color_e enemy_color;   // 0 for blue, 1 for red
+    Enemy_Color_e enemy_color;   // 0 是瞄准蓝方 , 1 是瞄准红方
     uint16_t cooling_speed;
 } Chassis_Upload_Data_s;
 
@@ -279,7 +295,8 @@ typedef struct
     attitude_t gimbal_imu_data;
     float yaw_motor_single_round_angle;
     float yaw_motor_sum_round_angle;
-
+    float pitch_motor_single_round_angle;
+    uint8_t pitch_motor_lost_flag;
 } Gimbal_Upload_Data_s;
 
 typedef struct
