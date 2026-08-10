@@ -7,21 +7,15 @@ typedef struct {
     float ref_pos;         // 期望位置 (rad)
     float ref_vel;         // 期望速度 (rad/s)
     float ref_acc;         // 期望加速度 (rad/s²)
-    float *ref_vel_ptr;    // 上位机给出的角速度地址 (deg/s)
-    float *ref_acc_ptr;    // 上位机给出的角加速度地址 (deg/s²)
 
     // --- 反馈值（来自传感器） ---
     float fbk_pos;         // 实际位置 (rad)
     float fbk_vel;         // 实际角速度 (rad/s)
 
-    float Kp_pos;
-    float Kp_vel;
-
     // --- 中间计算变量（便于调试打印） ---
     float torque_ff;       // 前馈力矩 (N*m)
     float torque_p;        // 位置补偿力矩 (N*m)
     float torque_v;        // 速度补偿力矩 (N*m)
-    float torque_total;    // 总合成力矩 (N*m)
 
     // --- 最终输出 ---
     float out_current;     // 发送给电调的电流指令

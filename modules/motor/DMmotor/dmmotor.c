@@ -259,7 +259,6 @@ void DMMotorControl(){
         motor->motor_can_instance->tx_buff[7] = (uint8_t)(motor_send_mailbox.torque_des);
 
 
-
         CANTransmit(motor->motor_can_instance, 3); // 超时设为0
     }
 
