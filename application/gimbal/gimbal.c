@@ -7,8 +7,19 @@
 #include "bmi088.h"
 #include "vofa.h"
 #include "dmmotor.h"
+#include "math.h"
 
 #define VISION_VELOCITY_LPF 0.4f
+
+#define Friction_Smooth 100.0f
+#define J  0.02552f    // kg*m^2
+#define B  0.0731065f  // N*m*s/rad
+#define Tc 0.0125219f  // N*m
+#define Ku 0.808712f   // N*m / command unit
+
+volatile float yaw_gray_Kp_pos = 0.0f;
+volatile float yaw_gray_Kp_vel = 0.0f;
+
 static attitude_t *gimba_IMU_data; // 云台IMU数据
 static DMMotorInstance *yaw_motor;
 static DMMotorInstance  *pitch_motor;
@@ -26,13 +37,14 @@ float pitch_set,pitch_get,yaw_set;
 static float theta;
 static float sys_id_target_speed;
 uint32_t motor_model_count;
+static Gimbal_GrayFF yaw_gray_ff;
 
 // --- 系统辨识配置宏 ---
 #define SYS_ID_MODE_ON  0       // 1: 开启辨识, 0: 关闭
-#define SYS_ID_AMP      1.5f   // 激励振幅 (单位: rad/s，请根据电机响应调整，不要太大)
-#define SYS_ID_MIN_FREQ 1.0f    // 起始频率 1Hz
-#define SYS_ID_MAX_FREQ 50.0f   // 终止频率 50Hz
-#define SYS_ID_DURATION 30.0f   // 扫频持续时间 30秒
+#define SYS_ID_AMP      2.0f   // 激励振幅 (单位: rad/s，请根据电机响应调整，不要太大)
+#define SYS_ID_MIN_FREQ 0.5f    // 起始频率 Hz
+#define SYS_ID_MAX_FREQ 100.0f   // 终止频率 Hz
+#define SYS_ID_DURATION 90.0f   // 扫频持续时间 秒
 
 // 系统辨识全局变量
 static float sys_id_tick = 0.0f;
@@ -55,15 +67,41 @@ float Gimbal_SysID_Generate_Chirp(float dt) {
     // Phase = 2 * PI * (f_start * t + 0.5 * k * t^2)
     float phase = 2.0f * PI * (SYS_ID_MIN_FREQ * sys_id_tick + 0.5f * k * sys_id_tick * sys_id_tick);
 
-    float output = SYS_ID_AMP * arm_sin_f32(phase);
+    // 3. 对 2*PI 取模，防止 float 精度溢出
+    float phase_wrapped = fmodf(phase, 2.0f * PI);
+
+    float output = SYS_ID_AMP * arm_sin_f32(phase_wrapped);
 
     sys_id_tick += dt;
     return output;
 }
 
+static float Compute_Torque(Gimbal_GrayFF *ff)
+{
+    ff->fbk_pos = gimba_IMU_data->YawTotalAngle / RAD_TO_DEG;
+    ff->fbk_vel = gimba_IMU_data->Gyro[2];
+    if (ff->ref_vel_ptr) {
+        ff->ref_vel = *ff->ref_vel_ptr * DEGREE_2_RAD;
+    }
+    if (ff->ref_acc_ptr) {
+        ff->ref_acc = *ff->ref_acc_ptr * DEGREE_2_RAD;
+    }
+
+    ff->torque_ff = J * ff->ref_acc + B * ff->ref_vel + Tc * tanhf(Friction_Smooth * ff->ref_vel);
+
+    ff->torque_p = ff->Kp_pos * (ff->ref_pos - ff->fbk_pos);
+    ff->torque_v = ff->Kp_vel * (ff->ref_vel - ff->fbk_vel);
+
+    ff->torque_total = ff->torque_ff + ff->torque_p + ff->torque_v;
+    ff->out_current = ff->torque_total / Ku;
+    return ff->out_current;
+}
+
 
 void GimbalInit() {
     gimba_IMU_data = INS_Init(); // IMU先初始化,获取姿态数据指针赋给yaw电机的其他数据来源
+    yaw_gray_ff.ref_vel_ptr = &gimbal_cmd_recv.vision_yaw_speed_ff;
+    yaw_gray_ff.ref_acc_ptr = &gimbal_cmd_recv.vision_yaw_acc_ff;
     // YAW
     Motor_Init_Config_s yaw_config = {
             .can_init_config = {
@@ -104,11 +142,11 @@ void GimbalInit() {
                     .angle_feedback_source = OTHER_FEED,
                     .speed_feedback_source = OTHER_FEED,
                     .outer_loop_type = ANGLE_LOOP,
-                    .close_loop_type = ANGLE_LOOP | SPEED_LOOP ,
+                    .close_loop_type = OPEN_LOOP,      //并行pd另外设了实例
                     // .outer_loop_type = SPEED_LOOP,
                     // .close_loop_type = SPEED_LOOP,
                     .motor_reverse_flag = MOTOR_DIRECTION_NORMAL,
-                    //.feedforward_flag = SPEED_FEEDFORWARD,
+                    .feedforward_flag = CURRENT_FEEDFORWARD,
             },
             .motor_type = DM4310,
             .DM_P_MAX = 3.14159,
@@ -170,7 +208,6 @@ void GimbalInit() {
 }
 
 
-
 /* 机器人云台控制核心任务,后续考虑只保留IMU控制,不再需要电机的反馈 */
 void GimbalTask() {
     //红点激光
@@ -194,22 +231,22 @@ void GimbalTask() {
             yaw_motor->motor_controller.speed_PID.Iout = 0.0f;
             pitch_motor->motor_controller.speed_PID.ITerm = 0.0f;
             pitch_motor->motor_controller.speed_PID.Iout = 0.0f;
+            yaw_current = 0.0f;
+            yaw_gray_ff.ref_vel = 0.0f;
+            yaw_gray_ff.ref_acc = 0.0f;
             break;
             // 使用陀螺仪的反馈,底盘根据yaw电机的offset跟随云台或视觉模式采用
         case GIMBAL_GYRO_MODE: // 后续只保留此模式
             DMMotorEnable(yaw_motor);
             DMMotorEnable(pitch_motor);
 
-            // 速度前馈
-            if (gimbal_cmd_recv.auto_aim_mode == 1) {
-                //yaw_speed_feedforward = gimbal_cmd_recv.vision_yaw_speed_ff*PI/180.0f;
-            }
-            else {
-                yaw_speed_feedforward = 0;
-
-            }
-
-            DMMotorSetRef(yaw_motor, gimbal_cmd_recv.yaw); // yaw和pitch会在robot_cmd中处理好多圈和单圈
+            // 灰箱系统辨识前馈
+            yaw_gray_ff.ref_pos = gimbal_cmd_recv.yaw * DEGREE_2_RAD;
+            yaw_gray_ff.Kp_pos = yaw_gray_Kp_pos;
+            yaw_gray_ff.Kp_vel = yaw_gray_Kp_vel;
+            yaw_current = Compute_Torque(&yaw_gray_ff);
+            
+            DMMotorSetRef(yaw_motor, 0.0f);
             pitch_get = gimba_IMU_data->Pitch;
             DMMotorSetRef(pitch_motor,gimbal_cmd_recv.pitch);
             float yaw_angle_err = yaw_motor->motor_controller.angle_PID.Err;
@@ -232,7 +269,7 @@ void GimbalTask() {
                         DMMotorEnable(yaw_motor);
                         DMMotorEnable(pitch_motor);
                         //生成激励信号
-                        sys_id_target_speed = Gimbal_SysID_Generate_Chirp(dt);
+                        sys_id_target_speed = Gimbal_SysID_Generate_Chirp(0.001f);
                         DMMotorSetRef(yaw_motor, sys_id_target_speed);
                         DMMotorSetRef(pitch_motor, 0); // Pitch 保持 0
             #endif
@@ -247,6 +284,9 @@ void GimbalTask() {
             yaw_motor->motor_controller.speed_PID.Iout = 0.0f;
             pitch_motor->motor_controller.speed_PID.ITerm = 0.0f;
             pitch_motor->motor_controller.speed_PID.Iout = 0.0f;
+            yaw_current = 0.0f;
+            yaw_gray_ff.ref_vel = 0.0f;
+            yaw_gray_ff.ref_acc = 0.0f;
 
             break;
         default:
@@ -265,20 +305,7 @@ void GimbalTask() {
         gravity_current = 0.8383*arm_cos_f32(theta+1.0106)-0.2;
         //gravity_current = 0;
     }
-    if(gimbal_cmd_recv.real_wz > 0)
-    {
-        yaw_current = 0;
-        //yaw_current = -27.8095*gimbal_cmd_recv.real_wz*gimbal_cmd_recv.real_wz-18.619*gimbal_cmd_recv.real_wz-2154;
-    }
-    else if(gimbal_cmd_recv.real_wz < 0)
-    {
-        yaw_current = 0;
-        //yaw_current = 27.8095*gimbal_cmd_recv.real_wz*gimbal_cmd_recv.real_wz-18.619*gimbal_cmd_recv.real_wz+2154;
-    }
-    else
-    {
-        yaw_current = 0;
-    }
+
 
     // 设置反馈数据,主要是imu和yaw的ecd
     gimbal_feedback_data.gimbal_imu_data = *gimba_IMU_data;

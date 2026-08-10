@@ -247,6 +247,8 @@ typedef struct
     float auto_aim_mode;
     float vision_yaw_speed_ff;
     float vision_pitch_speed_ff;
+    float vision_yaw_acc_ff;
+    float vision_pitch_acc_ff;
     uint8_t DMMOTOR_Error_Clear_flag;
     gimbal_mode_e gimbal_mode;
 } Gimbal_Ctrl_Cmd_s;

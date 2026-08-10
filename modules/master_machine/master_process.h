@@ -4,7 +4,7 @@
 #include "bsp_usart.h"
 #include "seasky_protocol.h"
 
-#define VISION_RECV_SIZE 18u // 褰撳墠涓哄浐瀹氬€?36瀛楄妭
+#define VISION_RECV_SIZE 32u // header/mode + pitch/yaw/distance/v/a + checksum/tail
 #define VISION_SEND_SIZE 36u
 
 #pragma pack(1)
@@ -99,6 +99,8 @@ typedef __packed struct {
     float distance;
     float pitch_v;
     float yaw_v;
+    float pitch_acc;
+    float yaw_acc;
     uint8_t checksum;
     uint8_t tail; //=0x0d;
     float x;

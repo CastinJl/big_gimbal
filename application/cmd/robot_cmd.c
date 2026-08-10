@@ -312,7 +312,7 @@ static void RemoteControlSet() {
     {
         gimbal_cmd_send.auto_aim_mode = 0;
         chassis_cmd_send.auto_aim_mode = 0;
-        // 待添加,视觉会发来和目标的误差,同样将其转化为total angle的增量进行控制
+        // 待添加,视觉会发来目标角速度和角加速度deg/s   deg/s^2
         // ...
         if (gimbal_cmd_send.gimbal_mode!=GIMBAL_FREE_MODE) {
             gimbal_cmd_send.yaw -= 0.0025f * (float) rc_data[TEMP].rc.rocker_l_;
@@ -320,6 +320,8 @@ static void RemoteControlSet() {
             gimbal_cmd_send.pitch += 0.0025f * (float) rc_data[TEMP].rc.rocker_l1;
             gimbal_cmd_send.vision_yaw_speed_ff = (-0.5f) * (float) rc_data[TEMP].rc.rocker_l_;
             gimbal_cmd_send.vision_pitch_speed_ff = 0.5f*(float) rc_data[TEMP].rc.rocker_l1;
+            gimbal_cmd_send.vision_yaw_acc_ff = 0.0f;
+            gimbal_cmd_send.vision_pitch_acc_ff = 0.0f;
             if (!gimbal_fetch_data.pitch_motor_lost_flag) {
                 Pitch_Dynamic_Limit_Update();
             }
@@ -336,6 +338,8 @@ static void RemoteControlSet() {
             chassis_cmd_send.auto_aim_mode = 1;
             gimbal_cmd_send.vision_yaw_speed_ff = vision_recv_data->yaw_v;
             gimbal_cmd_send.vision_pitch_speed_ff = vision_recv_data->pitch_v;
+            gimbal_cmd_send.vision_yaw_acc_ff = vision_recv_data->yaw_acc;
+            gimbal_cmd_send.vision_pitch_acc_ff = vision_recv_data->pitch_acc;
         }
     }
     // 云台软件限位
@@ -401,8 +405,9 @@ static void RemoteControlSet() {
     shoot_cmd_send.heat_mode = HEAT_CLOSE;
     if (shoot_fetch_data.stalled_flag == 1)
         shoot_cmd_send.loader_mode = LOAD_REVERSE;
-    if(chassis_fetch_data.dead_state)
-        gimbal_cmd_send.yaw = gimbal_fetch_data.gimbal_imu_data.YawTotalAngle;
+    // if(chassis_fetch_data.dead_state)
+    //     gimbal_cmd_send.yaw = gimbal_fetch_data.gimbal_imu_data.YawTotalAngle;
+    //拆除了裁判系统导致一直处于阵亡状态
 
 }
 /**
@@ -453,6 +458,8 @@ static void VTRemoteControlSet() {
             gimbal_cmd_send.auto_aim_mode = 1;
             gimbal_cmd_send.vision_yaw_speed_ff = vision_recv_data->yaw_v;
             gimbal_cmd_send.vision_pitch_speed_ff = vision_recv_data->pitch_v;
+            gimbal_cmd_send.vision_yaw_acc_ff = vision_recv_data->yaw_acc;
+            gimbal_cmd_send.vision_pitch_acc_ff = vision_recv_data->pitch_acc;
         }
     }
     // 射频控制,固定每秒1发,后续可以根据左侧拨轮的值大小切换射频,
@@ -591,6 +598,8 @@ static void VTMouseKeySet()
             auto_aim_mode();
             gimbal_cmd_send.vision_yaw_speed_ff = vision_recv_data->yaw_v;
             gimbal_cmd_send.vision_pitch_speed_ff = vision_recv_data->pitch_v;
+            gimbal_cmd_send.vision_yaw_acc_ff = vision_recv_data->yaw_acc;
+            gimbal_cmd_send.vision_pitch_acc_ff = vision_recv_data->pitch_acc;
         }
         if (aim_select.suggest_fire == 1 && referee_VT_data->vt_ctrl[TEMP].mouse.left && shoot_cmd_send.friction_mode == FRICTION_ON)
         {
@@ -874,6 +883,8 @@ void RobotCMDTask() {
     SubGetMessage(gimbal_feed_sub, &gimbal_fetch_data);
     gimbal_cmd_send.vision_yaw_speed_ff = 0;
     gimbal_cmd_send.vision_pitch_speed_ff = 0;
+    gimbal_cmd_send.vision_yaw_acc_ff = 0;
+    gimbal_cmd_send.vision_pitch_acc_ff = 0;
     chassis_cmd_send.force_reset_flag = 0;
     gimbal_cmd_send.DMMOTOR_Error_Clear_flag = 0;
     chassis_fetch_data = *(Chassis_Upload_Data_s *)CANCommGet(cmd_can_comm);
