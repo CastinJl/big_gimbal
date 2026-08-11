@@ -13,7 +13,7 @@
 #define J  0.02552f    // kg*m^2
 #define B  0.0731065f  // N*m*s/rad
 #define Tc 0.0125219f  // N*m
-#define Ku 0.808712f   // N*m / command unit
+#define Ku 0.808712f   // N*m/unit
 
 
 static attitude_t *gimba_IMU_data; // 云台IMU数据
@@ -66,6 +66,24 @@ float Gimbal_SysID_Generate_Chirp(float dt) {
     return output;
 }
 
+#define YAW_SINE_TEST_ENABLE 1
+
+static float Sine_Test() {
+
+    static float test_tick = 0.0f;
+    float dt = 0.001f;
+    test_tick += dt;
+
+    // 参数：振幅 5°(0.087rad)，频率 1Hz(2*PI*1)
+    float amp = 10.0f * DEGREE_2_RAD;    // 5度振幅，安全
+    float freq = 1.0f;                  // 从1Hz开始，别贪快
+    float sine_angle = amp * arm_sin_f32(2.0f * PI * freq * test_tick);
+
+    // 用正弦波覆盖原有的 yaw 指令
+    return sine_angle ;
+}
+
+
 // --- 本地参考轨迹生成器 (2阶参考滤波器) ---
 // 把目标角度展开成平滑的 ref_pos/ref_vel/ref_acc;无视觉时也用本地生成前馈,
 // 视觉自瞄时再由 GimbalTask 用视觉 yaw_v/yaw_acc 覆盖 ref_vel/ref_acc。
@@ -73,13 +91,20 @@ typedef struct {
     float pos_f;   // 平滑后目标位置 (rad)
     float vel_ref; // 期望角速度 (rad/s)
     float acc_ref; // 期望角加速度 (rad/s²)
+    float fbk_pos;
+    float k;
 } RefTraj_t;
 
 static RefTraj_t yaw_traj;
 
 static void RefTraj_Step(RefTraj_t *t, float theta_raw_rad, float dt)
 {
-    const float wn = 2.0f * PI * 7.0f; // 参考带宽(Hz)
+    if (YAW_SINE_TEST_ENABLE) {
+        // 你可以单独定义一个宏
+        theta_raw_rad=Sine_Test();
+
+    }
+    const float wn = 2.0f * PI * t->k; // 参考带宽(Hz)
     const float zeta = 0.75f;           // 临界阻尼, 无超调
     t->acc_ref = wn * wn * (theta_raw_rad - t->pos_f) - 2.0f * zeta * wn * t->vel_ref;
     t->vel_ref += t->acc_ref * dt;
@@ -92,13 +117,13 @@ static float Compute_Torque(Gimbal_GrayFF *ff)
     ff->fbk_vel = gimba_IMU_data->Gyro[2];
     // ref_pos/ref_vel/ref_acc 由调用方(GimbalTask)通过本地轨迹生成 + 视觉覆盖填好, 不再从指针读取
 
-    ff->torque_ff = J * ff->ref_acc + B * ff->ref_vel + Tc * tanhf(Friction_Smooth * ff->ref_vel)/Ku;
+    ff->torque_ff = J * ff->ref_acc + B * ff->ref_vel + Tc * tanhf(Friction_Smooth * ff->ref_vel);
 
     // 并行复用 yaw 电机的 angle_PID / speed_PID 实例(输出都是扭矩,求和), 增益取配置
     ff->torque_p = PIDCalculate(&yaw_motor->motor_controller.angle_PID, ff->fbk_pos, ff->ref_pos);
     ff->torque_v = PIDCalculate(&yaw_motor->motor_controller.speed_PID, ff->fbk_vel, ff->ref_vel);
 
-    ff->out_current = ff->torque_ff + ff->torque_p + ff->torque_v;
+    ff->out_current = ff->torque_ff /Ku + ff->torque_p + ff->torque_v;
     return ff->out_current;
 }
 
@@ -115,21 +140,21 @@ void GimbalInit() {
             },
             .controller_param_init_config = {
                     .angle_PID = {
-                            .Kp = 10,//并行扭矩量纲起始值(原级联30);实车重标定
+                            .Kp = 0.0f,//并行扭矩量纲起始值(原级联30);实车重标定
                             .Ki = 0.0f,//0
                             .Kd = 0.0f,//0.0f,//0.005f
                             .DeadBand = 0.0f,
                             .Improve = PID_Trapezoid_Intergral | PID_Integral_Limit | PID_Derivative_On_Measurement,
                             .IntegralLimit = 500,
-                            .MaxOut = 20,
+                            .MaxOut = 100,
                     },
                     .speed_PID = {
-                            .Kp = 0.5f,//并行扭矩量纲起始值(原级联2.1);阻尼,实车重标定
+                            .Kp = 0.0f,//并行扭矩量纲起始值(原级联2.1);阻尼,实车重标定
                             .Ki = 0.0f,
                             .Kd = 0.0f, //0.005f
                             .Improve = PID_Integral_Limit | PID_Derivative_On_Measurement | PID_DerivativeFilter,
                             .IntegralLimit = 5,
-                            .MaxOut = 10, //即输出扭矩TMAX，可通过达妙上位机读取或修改
+                            .MaxOut = 100, //即输出扭矩TMAX，可通过达妙上位机读取或修改
                             .Derivative_LPF_RC = 0.0f
                            // .Output_LPF_RC = 0.003f
                     },
@@ -206,6 +231,8 @@ void GimbalInit() {
 
     gimbal_pub = PubRegister("gimbal_feed", sizeof(Gimbal_Upload_Data_s));
     gimbal_sub = SubRegister("gimbal_cmd", sizeof(Gimbal_Ctrl_Cmd_s));
+
+    yaw_traj.k=1.0f;
 }
 
 
@@ -235,6 +262,9 @@ void GimbalTask() {
             yaw_current = 0.0f;
             yaw_gray_ff.ref_vel = 0.0f;
             yaw_gray_ff.ref_acc = 0.0f;
+            // 同步参考轨迹到当前实际角度, 防止进 GYRO 时猛冲
+            yaw_traj.pos_f = gimba_IMU_data->YawTotalAngle * DEGREE_2_RAD;
+
             break;
             // 使用陀螺仪的反馈,底盘根据yaw电机的offset跟随云台或视觉模式采用
         case GIMBAL_GYRO_MODE: // 后续只保留此模式
@@ -244,7 +274,7 @@ void GimbalTask() {
             // 本地参考轨迹整形: 把 yaw_ref(主目标) 展开成平滑的 ref_pos; 视觉/无视觉共用平滑位置
             RefTraj_Step(&yaw_traj, gimbal_cmd_recv.yaw * DEGREE_2_RAD, 0.001f);
             yaw_gray_ff.ref_pos = yaw_traj.pos_f;
-
+            yaw_gray_ff.fbk_pos = gimbal_feedback_data.gimbal_imu_data.Yaw * DEGREE_2_RAD;
             if (gimbal_cmd_recv.auto_aim_mode == 1) {
                 // 视觉自瞄: 用视觉给的 yaw_v/yaw_acc(更好的外部预测)
                 yaw_gray_ff.ref_vel = gimbal_cmd_recv.vision_yaw_speed_ff * DEGREE_2_RAD;
@@ -297,6 +327,8 @@ void GimbalTask() {
             yaw_current = 0.0f;
             yaw_gray_ff.ref_vel = 0.0f;
             yaw_gray_ff.ref_acc = 0.0f;
+            // 同步参考轨迹到当前实际角度, 防止回 GYRO 时猛冲
+            yaw_traj.pos_f   = gimba_IMU_data->YawTotalAngle * DEGREE_2_RAD;
 
             break;
         default:
