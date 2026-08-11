@@ -15,6 +15,9 @@
 #define Tc 0.0125219f  // N*m
 #define Ku 0.808712f   // N*m/unit
 
+#define YAW_TRAJ_MAX_VEL 6.0f
+#define YAW_TRAJ_MAX_ACC 150.0f
+
 
 static attitude_t *gimba_IMU_data; // 云台IMU数据
 static DMMotorInstance *yaw_motor;
@@ -74,13 +77,12 @@ static float Sine_Test() {
     float dt = 0.001f;
     test_tick += dt;
 
-    // 参数：振幅 5°(0.087rad)，频率 1Hz(2*PI*1)
-    float amp = 15.0f * DEGREE_2_RAD;    // 5度振幅，安全
-    float freq = 2.0f;                  // 从1Hz开始，别贪快
-    float sine_angle = amp * arm_sin_f32(2.0f * PI * freq * test_tick);
+    // 参数：振幅，半周期 1s（+/-amp 来回跳）
+    float amp = 15.0f * DEGREE_2_RAD;    // 振幅 in rad
+    float half_period_s = 1.0f;          // 每个电平保持 1s
 
-    // 用正弦波覆盖原有的 yaw 指令
-    return sine_angle ;
+    uint32_t step_cnt = (uint32_t)(test_tick / half_period_s);
+    return (step_cnt % 2 == 0) ? amp : -amp;   // 直接返回 rad
 }
 
 
@@ -107,7 +109,9 @@ static void RefTraj_Step(RefTraj_t *t, float theta_raw_rad, float dt)
     const float wn = 2.0f * PI * t->k; // 参考带宽(Hz)
     const float zeta = 0.8f;           // 临界阻尼, 无超调
     t->acc_ref = wn * wn * (theta_raw_rad - t->pos_f) - 2.0f * zeta * wn * t->vel_ref;
+    LIMIT_MIN_MAX(t->acc_ref, -YAW_TRAJ_MAX_ACC, YAW_TRAJ_MAX_ACC);
     t->vel_ref += t->acc_ref * dt;
+    LIMIT_MIN_MAX(t->vel_ref, -YAW_TRAJ_MAX_VEL, YAW_TRAJ_MAX_VEL);
     t->pos_f   += t->vel_ref * dt;
 }
 
@@ -140,7 +144,7 @@ void GimbalInit() {
             },
             .controller_param_init_config = {
                     .angle_PID = {
-                            .Kp = 0.0f,//并行扭矩量纲起始值(原级联30);实车重标定
+                            .Kp = 5.0f,//并行扭矩量纲起始值(原级联30);实车重标定
                             .Ki = 0.0f,//0
                             .Kd = 0.0f,//0.0f,//0.005f
                             .DeadBand = 0.0f,
@@ -149,7 +153,7 @@ void GimbalInit() {
                             .MaxOut = 100,
                     },
                     .speed_PID = {
-                            .Kp = 0.0f,//并行扭矩量纲起始值(原级联2.1);阻尼,实车重标定
+                            .Kp = 0.10f,//并行扭矩量纲起始值(原级联2.1);阻尼,实车重标定
                             .Ki = 0.0f,
                             .Kd = 0.0f, //0.005f
                             .Improve = PID_Integral_Limit | PID_Derivative_On_Measurement | PID_DerivativeFilter,
@@ -177,7 +181,7 @@ void GimbalInit() {
             .motor_type = DM4310,
             .DM_P_MAX = 3.14159,
             .DM_V_MAX = 30,
-            .DM_T_MAX = 10
+            .DM_T_MAX = 20
     };
     // PITCH
     Motor_Init_Config_s pitch_config = {
@@ -232,7 +236,7 @@ void GimbalInit() {
     gimbal_pub = PubRegister("gimbal_feed", sizeof(Gimbal_Upload_Data_s));
     gimbal_sub = SubRegister("gimbal_cmd", sizeof(Gimbal_Ctrl_Cmd_s));
 
-    yaw_traj.k=7.0f;
+    yaw_traj.k=7.5f;
 }
 
 
@@ -264,6 +268,8 @@ void GimbalTask() {
             yaw_gray_ff.ref_acc = 0.0f;
             // 同步参考轨迹到当前实际角度, 防止进 GYRO 时猛冲
             yaw_traj.pos_f = gimba_IMU_data->YawTotalAngle * DEGREE_2_RAD;
+            yaw_traj.vel_ref = 0.0f;
+            yaw_traj.acc_ref = 0.0f;
 
             break;
             // 使用陀螺仪的反馈,底盘根据yaw电机的offset跟随云台或视觉模式采用
@@ -329,6 +335,8 @@ void GimbalTask() {
             yaw_gray_ff.ref_acc = 0.0f;
             // 同步参考轨迹到当前实际角度, 防止回 GYRO 时猛冲
             yaw_traj.pos_f   = gimba_IMU_data->YawTotalAngle * DEGREE_2_RAD;
+            yaw_traj.vel_ref = 0.0f;
+            yaw_traj.acc_ref = 0.0f;
 
             break;
         default:
