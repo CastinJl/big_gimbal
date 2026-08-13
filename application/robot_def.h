@@ -240,6 +240,8 @@ typedef struct
 { // 云台角度控制
     float yaw;
     float pitch;
+    float yaw_speed;
+    float pitch_speed;
     float chassis_rotate_wz;
     float shoot_rate; // 连续发射的射频,unit per s,发/秒
     float offset_angle; // 底盘和归中位置的夹角

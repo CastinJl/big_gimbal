@@ -321,8 +321,9 @@ void GimbalTask() {
             
             if (gimbal_cmd_recv.auto_aim_mode == 1) {
                 // 视觉自瞄: 用视觉给的 yaw_v/yaw_acc(更好的外部预测)
-                yaw_gray_ff.ref_vel = gimbal_cmd_recv.vision_yaw_speed_ff * DEGREE_2_RAD;
-                yaw_gray_ff.ref_acc = gimbal_cmd_recv.vision_yaw_acc_ff * DEGREE_2_RAD;
+                yaw_gray_ff.ref_pos = gimbal_cmd_recv.yaw * DEGREE_2_RAD;
+                yaw_gray_ff.ref_vel = gimbal_cmd_recv.vision_yaw_speed_ff;
+                yaw_gray_ff.ref_acc = gimbal_cmd_recv.vision_yaw_acc_ff;
             } else {
                 // 无视觉: 用本地轨迹生成的 ref_vel/ref_acc
                 Fast_TD(gimbal_cmd_recv.yaw * DEGREE_2_RAD, YAW_ACC_MAX ,&yaw_traj);

@@ -315,9 +315,9 @@ static void RemoteControlSet() {
         // 待添加,视觉会发来目标角速度和角加速度deg/s   deg/s^2
         // ...
         if (gimbal_cmd_send.gimbal_mode!=GIMBAL_FREE_MODE) {
-            gimbal_cmd_send.yaw -= 0.0025f * (float) rc_data[TEMP].rc.rocker_l_;
+            gimbal_cmd_send.yaw_speed = 0.0025f * (float) rc_data[TEMP].rc.rocker_l_;
             //gimbal_cmd_send.pitch += 0.001f * (float) rc_data[TEMP].rc.rocker_l1;
-            gimbal_cmd_send.pitch += 0.0025f * (float) rc_data[TEMP].rc.rocker_l1;
+            gimbal_cmd_send.pitch_speed = 0.0025f * (float) rc_data[TEMP].rc.rocker_l1;
             gimbal_cmd_send.vision_yaw_speed_ff = (-0.5f) * (float) rc_data[TEMP].rc.rocker_l_;
             gimbal_cmd_send.vision_pitch_speed_ff = 0.5f*(float) rc_data[TEMP].rc.rocker_l1;
             gimbal_cmd_send.vision_yaw_acc_ff = 0.0f;
@@ -434,8 +434,8 @@ static void VTRemoteControlSet() {
         (vision_recv_data->distance==-1)) // 左侧开关状态为[中],或视觉未识别到目标,纯遥控器拨杆控制
     {
         aim_select.suggest_fire = 0;
-        gimbal_cmd_send.yaw -= 0.0025f * (float)referee_VT_data->vt_ctrl[TEMP].vt.ch_left_x;
-        gimbal_cmd_send.pitch += 0.001f * (float)referee_VT_data->vt_ctrl[TEMP].vt.ch_left_y;
+        gimbal_cmd_send.yaw_speed = 0.0025f * (float)referee_VT_data->vt_ctrl[TEMP].vt.ch_left_x;
+        gimbal_cmd_send.pitch_speed = 0.001f * (float)referee_VT_data->vt_ctrl[TEMP].vt.ch_left_y;
 
         if (gimbal_cmd_send.pitch >= PITCH_MAX_ANGLE) gimbal_cmd_send.pitch = PITCH_MAX_ANGLE;
         if (gimbal_cmd_send.pitch <= PITCH_MIN_ANGLE) gimbal_cmd_send.pitch = PITCH_MIN_ANGLE;
@@ -556,8 +556,8 @@ static void VTMouseKeySet()
     chassis_cmd_send.vx = (float) key_w * 3.0f - (float) key_s * 3.0f; // 系数待测
     chassis_cmd_send.vy = (float) key_d * 3.0f - (float) key_a * 3.0f;
 
-    gimbal_cmd_send.yaw -= (float) referee_VT_data->vt_ctrl[TEMP].mouse.x / 660 * 20; // 系数待测//4
-    gimbal_cmd_send.pitch += (float) referee_VT_data->vt_ctrl[TEMP].mouse.y / 660 * 30;//6
+    gimbal_cmd_send.yaw_speed = (float) referee_VT_data->vt_ctrl[TEMP].mouse.x / 660 * 20; // 系数待测//4
+    gimbal_cmd_send.pitch_speed = (float) referee_VT_data->vt_ctrl[TEMP].mouse.y / 660 * 30;//6
     //gimbal_cmd_send.vision_yaw_speed_ff = (-5)*(float) referee_VT_data->vt_ctrl[TEMP].mouse.x;
     //gimbal_cmd_send.vision_pitch_speed_ff = 6* (float) referee_VT_data->vt_ctrl[TEMP].mouse.y;
     if (!gimbal_fetch_data.pitch_motor_lost_flag) {
