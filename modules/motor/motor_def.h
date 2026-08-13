@@ -96,6 +96,13 @@ typedef enum
     VOLTAGE_CONTROL,
 } Motor_Control_Type_e;
 
+/* 角度环和速度环同时启用时的计算结构 */
+typedef enum
+{
+    ANGLE_SPEED_CASCADE = 0,
+    ANGLE_SPEED_PARALLEL,
+} Angle_Speed_PID_Mode_e;
+
 
 /* 电机控制器,包括其他来源的反馈数据指针,3环控制器和电机的参考输入*/
 // 后续增加前馈数据指针
@@ -103,14 +110,18 @@ typedef struct
 {
     float *other_angle_feedback_ptr; // 其他反馈来源的反馈数据指针
     float *other_speed_feedback_ptr;
+    float *angle_ref_ptr;            // 并级角度环目标值指针
+    float *speed_ref_ptr;            // 并级速度环目标值指针
     float *speed_feedforward_ptr;
     float *current_feedforward_ptr;
 
     PIDInstance current_PID;
     PIDInstance speed_PID;
     PIDInstance angle_PID;
+    Angle_Speed_PID_Mode_e angle_speed_PID_mode;
 
-    float pid_ref; // 将会作为每个环的输入和输出顺次通过串级闭环
+    float pid_ref;     // 外部设定值,串级控制时作为最外环输入
+    float control_out; // 停机处理和限幅后的最终电机控制命令
 
     float motor_power_max;     //每个电机分配的功率上限
     float motor_power_predict; //根据模型预测的电机功率
@@ -139,12 +150,16 @@ typedef struct
     float *other_angle_feedback_ptr; // 角度反馈数据指针,注意电机使用total_angle
     float *other_speed_feedback_ptr; // 速度反馈数据指针,单位为angle per sec
 
+    float *angle_ref_ptr; // 并级角度环目标值指针,单位应与角度PID反馈一致
+    float *speed_ref_ptr; // 并级速度环目标值指针,单位应与速度PID反馈一致
+
     float *speed_feedforward_ptr;   // 速度前馈数据指针
     float *current_feedforward_ptr; // 电流前馈数据指针
 
     PID_Init_Config_s current_PID;
     PID_Init_Config_s speed_PID;
     PID_Init_Config_s angle_PID;
+    Angle_Speed_PID_Mode_e angle_speed_PID_mode;
 } Motor_Controller_Init_s;
 
 /* 用于初始化CAN电机的结构体,各类电机通用 */

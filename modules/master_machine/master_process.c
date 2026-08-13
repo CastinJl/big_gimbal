@@ -63,6 +63,9 @@ static void VisionOfflineCallback(void *id)
     USARTServiceInit(vision_usart_instance);
 #endif // !VISION_USE_UART
 
+    memset(&recv_data, 0, sizeof(recv_data));
+    recv_data.distance = -1.0f;
+
     LOGWARNING("[vision] vision offline, restart communication.");
 }
 
@@ -139,12 +142,12 @@ static void DecodeVision(uint16_t recv_len)
     //uint16_t flag_register;
     //get_protocol_info(vis_recv_buff, &flag_register, (uint8_t *)&recv_data.pitch);
     //    // TODO: code to resolve flag_register;
-    if(vis_recv_buff[0]==0xff)
-    {if(vis_recv_buff[31]==0x0d){
-            if(vis_recv_buff[30]==crc_8(vis_recv_buff,30)) {
-                memcpy(&recv_data, vis_recv_buff, VISION_RECV_SIZE);
-            }
-        }
+    if (recv_len >= VISION_RECV_SIZE &&
+        vis_recv_buff[0] == 0xff &&
+        vis_recv_buff[31] == 0x0d &&
+        vis_recv_buff[30] == crc_8(vis_recv_buff, 30)) {
+        memcpy(&recv_data, vis_recv_buff, VISION_RECV_SIZE);
+        DaemonReload(vision_daemon_instance);
     }
 }
 

@@ -294,7 +294,7 @@ typedef struct
 
 typedef struct
 {
-    attitude_t gimbal_imu_data;
+    attitude_t  gimbal_imu_data;
     float yaw_motor_single_round_angle;
     float yaw_motor_sum_round_angle;
     float pitch_motor_single_round_angle;

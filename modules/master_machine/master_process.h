@@ -91,7 +91,7 @@ typedef __packed struct {
     uint8_t reserved: 7;
 } SendPacket_t;
 
-typedef __packed struct {
+typedef struct __attribute__((packed)) {
     uint8_t header; //= 0xff;
     uint8_t mode;
     float pitch;
@@ -118,6 +118,14 @@ typedef __packed struct {
     uint8_t armors_num: 3;  // 2-balance 3-outpost 4-normal
     uint8_t reserved: 1;
 } RecievePacket_t;
+
+#if defined(__cplusplus)
+static_assert(offsetof(RecievePacket_t, checksum) == 30u, "vision checksum offset mismatch");
+static_assert(offsetof(RecievePacket_t, tail) == 31u, "vision tail offset mismatch");
+#else
+_Static_assert(offsetof(RecievePacket_t, checksum) == 30u, "vision checksum offset mismatch");
+_Static_assert(offsetof(RecievePacket_t, tail) == 31u, "vision tail offset mismatch");
+#endif
 #pragma pack()
 
 /**

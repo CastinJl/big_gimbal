@@ -95,10 +95,10 @@ static float test_center_yaw = 0;      // 测试开始时的Yaw中心
 static float test_center_pitch = 0;    // 测试开始时的Pitch中心
 
 // --- 调参区域 ---
-#define TEST_FREQ_HZ        3.0f       // 正弦波频率 1Hz
-#define TEST_AMP_YAW        30.0f      // Yaw轴摆动幅度 (度)
+#define TEST_FREQ_HZ        12.0f       // 正弦波频率 1Hz
+#define TEST_AMP_YAW        15.0f      // Yaw轴摆动幅度 (度)
 #define TEST_AMP_PITCH      10.0f      // Pitch轴摆动幅度 (度)
-#define STEP_INTERVAL_MS    400       // 阶跃跳变间隔 (ms)
+#define STEP_INTERVAL_MS    1000       // 阶跃跳变间隔 (ms)
 #define CONTROL_PERIOD_S    0.001f     // 控制周期 5ms (1000Hz)
 
 // uint8_t key_s,key_w,key_a,key_d;
@@ -326,7 +326,7 @@ static void RemoteControlSet() {
                 Pitch_Dynamic_Limit_Update();
             }
         }
-        //Gimbal_Test_Signal_Generator();
+        Gimbal_Test_Signal_Generator();
 
     }
     // 左侧开关状态为[下],视觉模式
