@@ -16,7 +16,7 @@
 #define Ku 0.884459f   // N*m/unit
 #define FF_GAIN 1.0f  // 前馈增益，建议 0.85~0.95
 
-static attitude_t *gimba_IMU_data; // 云台IMU数据
+static attitude_t *gimbal_IMU_data; // 云台IMU数据
 static DMMotorInstance *yaw_motor;
 static DMMotorInstance  *pitch_motor;
 
@@ -31,7 +31,7 @@ static float theta;
 
 static uint32_t yaw_profile_dwt_cnt;
 static uint8_t yaw_profile_timing_ready;
-
+static float last_auto_aim_mode;
 static Gimbal_GrayFF yaw_gray_ff;
 
 // --- 系统辨识配置宏 ---
@@ -108,17 +108,14 @@ float Gimbal_SysID_Generate_Pitch_PRBS(void) {
                             : PITCH_PRBS_LOW_TORQUE;
 }
 
-// 把目标角度展开成平滑的 ref_pos/ref_vel/ref_acc;无视觉时也用本地生成前馈,
-// 视觉自瞄时再由 GimbalTask 用视觉 yaw_v/yaw_acc 覆盖 ref_vel/ref_acc。
 static RefTraj_t yaw_traj;
 // 最速跟踪微分器 (TD)
-// 输入：cmd (目标角度)
+// 输入：v_cmd (目标角度)
 // 输出：ref_pos, ref_vel, ref_acc
-// 参数：amax (最大加速度), h (滤波因子，取 3~10 倍 Ts)
-void Fast_TD(float v_cmd, float amax, RefTraj_t *t)
+// 参数：amax (最大加速度)
+void SPEED_TD(float v_cmd, float amax, RefTraj_t *t)
 {
-    static float pos = 0.0f; // 跟踪位置
-    static float vel = 0.0f; // 跟踪速度
+    //float dt=0.001f;
     float dt = DWT_GetDeltaT(&yaw_profile_dwt_cnt);
 
     if (!yaw_profile_timing_ready ||
@@ -127,25 +124,22 @@ void Fast_TD(float v_cmd, float amax, RefTraj_t *t)
         dt = YAW_PROFILE_DEFAULT_DT;
         }
 
-    float dv=v_cmd - vel;
+    float dv=v_cmd - t->vel_ref;
     float alpha = dv /dt;
 
     if (alpha > amax) alpha = amax;
     else if (alpha < -amax) alpha = -amax;
 
-    t->pos_f += vel * dt;   // 下一时刻参考位置
-    t->vel_ref = v_cmd; // 下一时刻参考速度
+    t->vel_ref += alpha * dt; // 下一时刻参考速度
+    t->pos_f += t->vel_ref * dt;   // 下一时刻参考位置
     t->acc_ref = alpha;             // 加速度
-
-    pos = t->pos_f;
-    vel = t->vel_ref;
 }
 
 
 static float Compute_Torque(Gimbal_GrayFF *ff)
 {
-    ff->fbk_pos = gimba_IMU_data->YawTotalAngle *DEGREE_2_RAD;
-    ff->fbk_vel = gimba_IMU_data->Gyro[2];
+    ff->fbk_pos = gimbal_IMU_data->YawTotalAngle *DEGREE_2_RAD;
+    ff->fbk_vel = gimbal_IMU_data->Gyro[2];
     // ref_pos/ref_vel/ref_acc 由GimbalTask通过本地轨迹生成 + 视觉覆盖填好
 
     ff->torque_ff = J * ff->ref_acc + B * ff->ref_vel + Tc * tanhf(Friction_Smooth * ff->ref_vel);
@@ -156,7 +150,7 @@ static float Compute_Torque(Gimbal_GrayFF *ff)
 
 
 void GimbalInit() {
-    gimba_IMU_data = INS_Init(); // IMU先初始化,获取姿态数据指针赋给yaw电机的其他数据来源
+    gimbal_IMU_data = INS_Init(); // IMU先初始化,获取姿态数据指针赋给yaw电机的其他数据来源
     // ref_vel/ref_acc 改由 GimbalTask 本地轨迹生成 + 视觉覆盖填给 yaw_gray_ff, 不再用指针指向视觉字段
     // YAW
     Motor_Init_Config_s yaw_config = {
@@ -185,9 +179,9 @@ void GimbalInit() {
                             .Derivative_LPF_RC = 0.0f
                            // .Output_LPF_RC = 0.003f
                     },
-                    .other_angle_feedback_ptr = &gimba_IMU_data->YawTotalAngle,
+                    .other_angle_feedback_ptr = &gimbal_IMU_data->YawTotalAngle,
                     // 还需要增加角速度额外反馈指针,注意方向,ins_task.md中有c板的bodyframe坐标系说明
-                    .other_speed_feedback_ptr = &gimba_IMU_data->Gyro[2],
+                    .other_speed_feedback_ptr = &gimbal_IMU_data->Gyro[2],
                     .angle_ref_ptr = &yaw_gray_ff.ref_pos,
                     .speed_ref_ptr = &yaw_gray_ff.ref_vel,
                     .current_feedforward_ptr = &yaw_current,
@@ -240,9 +234,9 @@ void GimbalInit() {
                             //.Derivative_LPF_RC = 0.02f
 
                     },
-                    .other_angle_feedback_ptr = &gimba_IMU_data->Pitch,//&gimba_IMU_data->Pitch,
+                    .other_angle_feedback_ptr = &gimbal_IMU_data->Pitch,//&gimba_IMU_data->Pitch,
                     // 还需要增加角速度额外反馈指针,注意方向,ins_task.md中有c板的bodyframe坐标系说明
-                    .other_speed_feedback_ptr = &gimba_IMU_data->Gyro[0],//(&gimba_IMU_data->Gyro[0]),
+                    .other_speed_feedback_ptr = &gimbal_IMU_data->Gyro[0],//(&gimba_IMU_data->Gyro[0]),
                     .current_feedforward_ptr = &gravity_current,
             },
             .controller_setting_init_config = {
@@ -306,7 +300,7 @@ void GimbalTask() {
             yaw_gray_ff.ref_vel = 0.0f;
             yaw_gray_ff.ref_acc = 0.0f;
             // 同步参考轨迹到当前实际角度, 防止进 GYRO 时猛冲
-            yaw_traj.pos_f = gimba_IMU_data->YawTotalAngle * DEGREE_2_RAD;
+            yaw_traj.pos_f = gimbal_IMU_data->YawTotalAngle * DEGREE_2_RAD;
             yaw_traj.vel_ref = 0.0f;
             yaw_traj.acc_ref = 0.0f;
 
@@ -317,7 +311,6 @@ void GimbalTask() {
             DMMotorEnable(pitch_motor);
 
             // 本地参考轨迹整形: 把 yaw_ref(主目标) 展开成平滑的 ref_pos; 视觉/无视觉共用平滑位置
-
             
             if (gimbal_cmd_recv.auto_aim_mode == 1) {
                 // 视觉自瞄: 用视觉给的 yaw_v/yaw_acc(更好的外部预测)
@@ -325,12 +318,18 @@ void GimbalTask() {
                 yaw_gray_ff.ref_vel = gimbal_cmd_recv.vision_yaw_speed_ff;
                 yaw_gray_ff.ref_acc = gimbal_cmd_recv.vision_yaw_acc_ff;
             } else {
+                if (last_auto_aim_mode == 1) {
+                    yaw_traj.pos_f = gimbal_IMU_data->YawTotalAngle * DEGREE_2_RAD;
+                    yaw_traj.vel_ref = 0.0f;
+                    yaw_traj.acc_ref = 0.0f;
+                }
                 // 无视觉: 用本地轨迹生成的 ref_vel/ref_acc
-                Fast_TD(gimbal_cmd_recv.yaw * DEGREE_2_RAD, YAW_ACC_MAX ,&yaw_traj);
+                SPEED_TD(gimbal_cmd_recv.yaw_speed * DEGREE_2_RAD, YAW_ACC_MAX ,&yaw_traj);
                 yaw_gray_ff.ref_pos = yaw_traj.pos_f;
                 yaw_gray_ff.ref_vel = yaw_traj.vel_ref;
                 yaw_gray_ff.ref_acc = yaw_traj.acc_ref;
             }
+            last_auto_aim_mode = gimbal_cmd_recv.auto_aim_mode;
 
 #if SYS_ID_MODE_ON
             // 辨识输入必须是纯 chirp，不能叠加正常闭环和模型前馈。
@@ -384,7 +383,7 @@ void GimbalTask() {
             yaw_gray_ff.ref_vel = 0.0f;
             yaw_gray_ff.ref_acc = 0.0f;
             // 同步参考轨迹到当前实际角度, 防止回 GYRO 时猛冲
-            yaw_traj.pos_f   = gimba_IMU_data->YawTotalAngle * DEGREE_2_RAD;
+            yaw_traj.pos_f   = gimbal_IMU_data->YawTotalAngle * DEGREE_2_RAD;
             yaw_traj.vel_ref = 0.0f;
             yaw_traj.acc_ref = 0.0f;
 
@@ -395,7 +394,7 @@ void GimbalTask() {
     }
     // 根据IMU姿态/pitch电机角度反馈计算出当前配重下的重力矩
 
-    theta = gimba_IMU_data->Pitch/180*PI;
+    theta = gimbal_IMU_data->Pitch/180*PI;
     if (theta>0.4) {//0.6
         gravity_current = 0.1f;
         //gravity_current = 0;
@@ -407,7 +406,7 @@ void GimbalTask() {
 
 
     // 设置反馈数据,主要是imu和yaw的ecd
-    gimbal_feedback_data.gimbal_imu_data = *gimba_IMU_data;
+    gimbal_feedback_data.gimbal_imu_data = *gimbal_IMU_data;
     gimbal_feedback_data.yaw_motor_single_round_angle = yaw_motor->measure.angle_single_round;
     gimbal_feedback_data.yaw_motor_sum_round_angle= yaw_motor->measure.total_angle;
     gimbal_feedback_data.pitch_motor_single_round_angle= pitch_motor->measure.angle_single_round;
