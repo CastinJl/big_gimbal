@@ -64,16 +64,6 @@ typedef enum {
     SMALL_AMU_30 = 30,
 } Bullet_Speed_e;
 
-typedef struct {
-    Enemy_Color_e enemy_color;
-    Work_Mode_e work_mode;
-    Bullet_Speed_e bullet_speed;
-
-    float yaw;
-    float pitch;
-    float roll;
-} Vision_Send_s;
-
 typedef __packed struct {
     uint8_t header;//0xff
     uint8_t mode;
@@ -84,11 +74,6 @@ typedef __packed struct {
     float empty2;//占位符，无意义
     uint8_t checksum;
     uint8_t tail;//0x0d
-    float aim_x;
-    float aim_y;
-    float aim_z;
-    uint8_t detect_color: 1;
-    uint8_t reserved: 7;
 } SendPacket_t;
 
 typedef struct __attribute__((packed)) {
@@ -103,28 +88,20 @@ typedef struct __attribute__((packed)) {
     float yaw_acc;
     uint8_t checksum;
     uint8_t tail; //=0x0d;
-    float x;
-    float y;
-    float z;
-    float vx;
-    float vy;
-    float vz;
-    float v_yaw;
-    float r1;
-    float r2;
-    float dz;
-    uint8_t tracking: 1;
-    uint8_t id: 3;          // 0-outpost 6-guard 7-base
-    uint8_t armors_num: 3;  // 2-balance 3-outpost 4-normal
-    uint8_t reserved: 1;
 } RecievePacket_t;
 
 #if defined(__cplusplus)
 static_assert(offsetof(RecievePacket_t, checksum) == 30u, "vision checksum offset mismatch");
 static_assert(offsetof(RecievePacket_t, tail) == 31u, "vision tail offset mismatch");
+static_assert(offsetof(SendPacket_t, checksum) == 22u, "vision send checksum offset mismatch");
+static_assert(offsetof(SendPacket_t, tail) == 23u, "vision send tail offset mismatch");
+static_assert(sizeof(SendPacket_t) == 24u, "vision send frame must stay 24 bytes");
 #else
 _Static_assert(offsetof(RecievePacket_t, checksum) == 30u, "vision checksum offset mismatch");
 _Static_assert(offsetof(RecievePacket_t, tail) == 31u, "vision tail offset mismatch");
+_Static_assert(offsetof(SendPacket_t, checksum) == 22u, "vision send checksum offset mismatch");
+_Static_assert(offsetof(SendPacket_t, tail) == 23u, "vision send tail offset mismatch");
+_Static_assert(sizeof(SendPacket_t) == 24u, "vision send frame must stay 24 bytes");
 #endif
 #pragma pack()
 
@@ -161,5 +138,4 @@ void VisionSetFlag(uint8_t enemy_color);
 //void VisionSetAltitude(float yaw, float pitch, float roll);
 void VisionSetAltitude(float yaw, float pitch,float roll);
 
-void VisionSetAim(float aim_x, float aim_y,float aim_z);
 #endif // !MASTER_PROCESS_H

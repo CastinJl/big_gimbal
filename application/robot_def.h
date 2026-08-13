@@ -196,17 +196,6 @@ typedef enum
     IGNORE_FIRE_SUGGESTION  //忽略开火建议，只有目标跟随，发弹听从操作手
 }auto_aim_fire_suggest_mode_e;
 
-// 功率限制,从裁判系统获取,是否有必要保留?
-typedef struct
-{
-    uint16_t chassis_power_mx; // 功率限制
-} Chassis_Power_Data_s;
-
-// 电容信息
-typedef struct
-{
-    int16_t cap_vol;
-} Cap_Data_s;
 /* ----------------CMD应用发布的控制数据,应当由gimbal/chassis/shoot订阅---------------- */
 /**
  * @brief 对于双板情况,遥控器和pc在云台,裁判系统在底盘

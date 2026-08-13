@@ -28,7 +28,6 @@ static DaemonInstance *vision_daemon_instance;
 void VisionSetFlag(uint8_t enemy_color)
 {
     send_data.mode = enemy_color;
-    send_data.reserved = 0;
 }
 
 //void VisionSetAltitude(float yaw, float pitch)
@@ -42,13 +41,6 @@ void VisionSetAltitude(float yaw, float pitch,float roll)
     send_data.pitch = pitch;
     send_data.roll = roll;
 }
-
-void VisionSetAim(float aim_x, float aim_y, float aim_z) {
-    send_data.aim_x = aim_x;
-    send_data.aim_y = aim_y;
-    send_data.aim_z = aim_z;
-}
-
 
 /**
  * @brief 绂荤嚎鍥炶皟鍑芥暟,灏嗗湪daemon.c涓daemon task璋冪敤

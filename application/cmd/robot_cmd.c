@@ -8,7 +8,6 @@
 #include "message_center.h"
 #include "general_def.h"
 #include "dji_motor.h"
-#include "auto_aim.h"
 #include "super_cap.h"
 #include "Power.h"
 #include "referee_VT.h"
@@ -46,12 +45,10 @@ static float diff_yaw;
 //static Vision_Recv_s *vision_recv_data; // 视觉接收数据指针,初始化时返回
 //static Vision_Send_s vision_send_data;  // 视觉发送数据
 static RecievePacket_t *vision_recv_data; // 视觉接收数据指针,初始化时返回
-static SendPacket_t vision_send_data;     // 视觉发送数据
 VT_info_t *referee_VT_data; //图传链路数据
 
 //自瞄相关信息
-static Trajectory_Type_t trajectory_cal;
-static Aim_Select_Type_t aim_select;
+static uint8_t aim_suggest_fire;
 static uint32_t no_find_cnt;      // 未发现目标计数
 static uint8_t auto_aim_flag = 0; //辅助瞄准标志位  视野内有目标开启 目标丢失关闭
 static uint8_t choose_amor_id = 0;
@@ -231,14 +228,14 @@ static void Vision_UI_Update() {
     if (vision_recv_data->distance != -1 && vision_recv_data->yaw != 0 && vision_recv_data->pitch != 0) {
         chassis_cmd_send.vision_find_target_flag = 1;
         if (vision_recv_data->mode == 1) {
-            aim_select.suggest_fire = 1;
+            aim_suggest_fire = 1;
             chassis_cmd_send.auto_aim_fire_suggestion = 1;
         } else {
-            aim_select.suggest_fire = 0;
+            aim_suggest_fire = 0;
             chassis_cmd_send.auto_aim_fire_suggestion = 0;
         }
     } else {
-        aim_select.suggest_fire = 0;
+        aim_suggest_fire = 0;
         chassis_cmd_send.auto_aim_fire_suggestion = 0;
         chassis_cmd_send.vision_find_target_flag = 0;
     }
@@ -369,7 +366,7 @@ static void RemoteControlSet() {
 
     // 拨弹控制,遥控器固定为一种拨弹模式,可自行选择
     if (rc_data[TEMP].rc.dial < -500){//
-        if(switch_is_down(rc_data[TEMP].rc.switch_left)&&aim_select.suggest_fire == 1){
+        if(switch_is_down(rc_data[TEMP].rc.switch_left)&&aim_suggest_fire == 1){
             shoot_cmd_send.shoot_mode = SHOOT_ON;
             shoot_cmd_send.loader_mode = LOAD_BURSTFIRE;
         }
@@ -433,7 +430,7 @@ static void VTRemoteControlSet() {
     if (referee_VT_data->vt_ctrl[TEMP].vt.fn_left == 0 ||
         (vision_recv_data->distance==-1)) // 左侧开关状态为[中],或视觉未识别到目标,纯遥控器拨杆控制
     {
-        aim_select.suggest_fire = 0;
+        aim_suggest_fire = 0;
         gimbal_cmd_send.yaw_speed = -0.0025f * (float)referee_VT_data->vt_ctrl[TEMP].vt.ch_left_x;
         gimbal_cmd_send.pitch = 0.001f * (float)referee_VT_data->vt_ctrl[TEMP].vt.ch_left_y;
 
@@ -478,7 +475,7 @@ static void VTRemoteControlSet() {
     // 拨弹控制,遥控器固定为一种拨弹模式,可自行选择
     if (referee_VT_data->vt_ctrl[TEMP].vt.wheel > 1500)
     {
-        if(referee_VT_data->vt_ctrl[TEMP].vt.mode_sw == 0 &&vision_recv_data->mode==0 &&aim_select.suggest_fire == 0){
+        if(referee_VT_data->vt_ctrl[TEMP].vt.mode_sw == 0 &&vision_recv_data->mode==0 &&aim_suggest_fire == 0){
             shoot_cmd_send.shoot_mode = SHOOT_OFF;
             shoot_cmd_send.loader_mode = LOAD_STOP;
         }
@@ -601,7 +598,7 @@ static void VTMouseKeySet()
             gimbal_cmd_send.vision_yaw_acc_ff = vision_recv_data->yaw_acc;
             gimbal_cmd_send.vision_pitch_acc_ff = vision_recv_data->pitch_acc;
         }
-        if (aim_select.suggest_fire == 1 && referee_VT_data->vt_ctrl[TEMP].mouse.left && shoot_cmd_send.friction_mode == FRICTION_ON)
+        if (aim_suggest_fire == 1 && referee_VT_data->vt_ctrl[TEMP].mouse.left && shoot_cmd_send.friction_mode == FRICTION_ON)
         {
             shoot_cmd_send.shoot_mode = SHOOT_ON;
             if(loader_flag == 0){
