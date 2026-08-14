@@ -53,7 +53,7 @@ static Gimbal_GrayFF yaw_gray_ff;
 #define PITCH_PRBS_HOLD_END_MS   100U   // 结束保持(覆盖~5Hz), 满幅安全上限
 #define PITCH_PRBS_HOLD_STEPS    16U    // 档数(几何递增)
 #define PITCH_PRBS_BITS_PER_STEP 64U    // 每档位数
-#define PITCH_SYS_ID_LIMIT_DEG   10.0f  // 软件角度限位(|Pitch|越限→力矩0), 保持10°以内
+#define PITCH_SYS_ID_LIMIT_RAD   (10.0f * DEGREE_2_RAD)
 #define PITCH_SYS_ID_HOLD_MS     500U   // 起始0力矩悬停验证窗口(按1kHz调用≈500ms)
 #define PITCH_J_EST    0.01f            // pitch 惯量估计(控摆幅用, 可保守)
 #define PITCH_KU_EST   0.884f           // 力矩指令单位→N*m
@@ -351,7 +351,7 @@ void GimbalTask() {
             yaw_gray_ff.ref_vel = 0.0f;
             yaw_gray_ff.ref_acc = 0.0f;
             // 同步参考轨迹到当前实际角度, 防止进 GYRO 时猛冲
-            yaw_traj.pos_f = gimbal_IMU_data->YawTotalAngle * DEGREE_2_RAD;
+            yaw_traj.pos_f = gimbal_IMU_data->YawTotalAngle;
             yaw_traj.vel_ref = 0.0f;
             yaw_traj.acc_ref = 0.0f;
 
@@ -365,17 +365,17 @@ void GimbalTask() {
             
             if (gimbal_cmd_recv.auto_aim_mode == 1) {
                 // 视觉自瞄: 用视觉给的 yaw_v/yaw_acc(更好的外部预测)
-                yaw_gray_ff.ref_pos = gimbal_cmd_recv.yaw * DEGREE_2_RAD;
+                yaw_gray_ff.ref_pos = gimbal_cmd_recv.yaw;
                 yaw_gray_ff.ref_vel = gimbal_cmd_recv.vision_yaw_speed_ff;
                 yaw_gray_ff.ref_acc = gimbal_cmd_recv.vision_yaw_acc_ff;
             } else {
                 if (last_auto_aim_mode == 1) {
-                    yaw_traj.pos_f = gimbal_IMU_data->YawTotalAngle * DEGREE_2_RAD;
+                    yaw_traj.pos_f = gimbal_IMU_data->YawTotalAngle;
                     yaw_traj.vel_ref = 0.0f;
                     yaw_traj.acc_ref = 0.0f;
                 }
                 // 无视觉: 用本地轨迹生成的 ref_vel/ref_acc
-                SPEED_TD(gimbal_cmd_recv.yaw_speed * DEGREE_2_RAD, YAW_ACC_MAX ,&yaw_traj);
+                SPEED_TD(gimbal_cmd_recv.yaw_speed, YAW_ACC_MAX, &yaw_traj);
                 yaw_gray_ff.ref_pos = yaw_traj.pos_f;
                 yaw_gray_ff.ref_vel = yaw_traj.vel_ref;
                 yaw_gray_ff.ref_acc = yaw_traj.acc_ref;
@@ -393,7 +393,7 @@ void GimbalTask() {
             yaw_current = 0.0f;
             DMMotorSetRef(yaw_motor, 0.0f);
             // 开环保护: 角度越限 → 力矩 0
-            sys_id_target_speed = (fabsf(gimbal_IMU_data->Pitch) > PITCH_SYS_ID_LIMIT_DEG)
+            sys_id_target_speed = (fabsf(gimbal_IMU_data->Pitch) > PITCH_SYS_ID_LIMIT_RAD)
                                       ? 0.0f
                                       : Gimbal_SysID_Generate_Pitch_PRBS();
             DMMotorSetRef(pitch_motor, sys_id_target_speed);
@@ -435,7 +435,7 @@ void GimbalTask() {
             yaw_gray_ff.ref_vel = 0.0f;
             yaw_gray_ff.ref_acc = 0.0f;
             // 同步参考轨迹到当前实际角度, 防止回 GYRO 时猛冲
-            yaw_traj.pos_f   = gimbal_IMU_data->YawTotalAngle * DEGREE_2_RAD;
+            yaw_traj.pos_f   = gimbal_IMU_data->YawTotalAngle;
             yaw_traj.vel_ref = 0.0f;
             yaw_traj.acc_ref = 0.0f;
 
@@ -446,7 +446,7 @@ void GimbalTask() {
     }
     // 根据IMU姿态/pitch电机角度反馈计算出当前配重下的重力矩
 
-    theta = gimbal_IMU_data->Pitch/180*PI;
+    theta = gimbal_IMU_data->Pitch;
     if (theta>0.4) {//0.6
         gravity_current = 0.1f;
         //gravity_current = 0;

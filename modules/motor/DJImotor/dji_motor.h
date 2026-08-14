@@ -17,6 +17,7 @@
 
 #include "bsp_can.h"
 #include "controller.h"
+#include "general_def.h"
 #include "motor_def.h"
 #include "stdint.h"
 #include "daemon.h"
@@ -26,19 +27,19 @@
 /* 滤波系数设置为1的时候即关闭滤波 */
 #define SPEED_SMOOTH_COEF 0.85f      // 最好大于0.85
 #define CURRENT_SMOOTH_COEF 0.9f     // 必须大于0.9
-#define ECD_ANGLE_COEF_DJI 0.043945f // (360/8192),将编码器值转化为角度制
+#define ECD_ANGLE_COEF_DJI (PI2 / 8192.0f) // 将编码器值转换为弧度
 
 /* DJI电机CAN反馈信息*/
 typedef struct
 {
     uint16_t last_ecd;        // 上一次读取的编码器值
     uint16_t ecd;             // 0-8191,刻度总共有8192格
-    float angle_single_round; // 单圈角度
-    float speed_aps;          // 角速度,单位为:度/秒
+    float angle_single_round; // 单圈角度,单位 rad
+    float speed_aps;          // 角速度,单位 rad/s
     int16_t real_current;     // 实际电流
     uint8_t temperature;      // 温度 Celsius
 
-    float total_angle;   // 总角度,注意方向
+    float total_angle;   // 总角度,单位 rad,注意方向
     int32_t total_round; // 总圈数,注意方向
     float init_totalangle;//初始角度
 

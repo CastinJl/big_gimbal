@@ -38,8 +38,8 @@ void ShootInit()
     },
     .controller_param_init_config = {
             .speed_PID = {
-                .Kp = 1.5f,
-                .Ki = 0.2f,
+                .Kp = 1.5f * RAD_2_DEGREE, // 原1.5按度/s调, 现rad/s重标×57.3
+                .Ki = 0.2f * RAD_2_DEGREE,
                 .Kd = 0,
                 .Improve = PID_Integral_Limit,
                 .IntegralLimit = 10000,
@@ -80,14 +80,14 @@ void ShootInit()
             .controller_param_init_config = {
                     .angle_PID = {
                             // 如果启用位置环来控制发弹,需要较大的I值保证输出力矩的线性度否则出现接近拨出的力矩大幅下降
-                            .Kp = 15,
+                            .Kp = 15.0f * RAD_2_DEGREE, // 原15按度调, 现rad重标×57.3
                             .Ki = 0,
                             .Kd = 0,
                             .MaxOut = 10000,
                     },
                     .speed_PID = {
-                            .Kp = 3.5, // 3
-                            .Ki = 1, // 1
+                            .Kp = 3.5f * RAD_2_DEGREE, // 原3.5按度/s调, 现rad/s重标×57.3
+                            .Ki = 1.0f * RAD_2_DEGREE,
                             .Kd = 0,
                             .Improve = PID_Integral_Limit,
                             .IntegralLimit = 5000,
@@ -130,7 +130,7 @@ void stalled_detect()
         return;
     if(shoot_cmd_recv.loader_mode == LOAD_BURSTFIRE)
     {
-        if(abs(loader->measure.speed_aps)<=500)
+        if(fabsf(loader->measure.speed_aps)<=500.0f * DEGREE_2_RAD) // speed_aps 已 rad/s, 阈值500°=8.73rad/s
         {
             stalled_cnt ++;
         }
@@ -248,7 +248,7 @@ void ShootTask()
         if (single_shot_lock == 0)
         {
             DJIMotorOuterLoop(loader, ANGLE_LOOP);                              // 切换到角度环
-            DJIMotorSetRef(loader, loader->measure.total_angle + ONE_BULLET_DELTA_ANGLE * REDUCTION_RATIO_LOADER); // 控制量增加一发弹丸的角度
+            DJIMotorSetRef(loader, loader->measure.total_angle + ONE_BULLET_DELTA_ANGLE * DEGREE_2_RAD * REDUCTION_RATIO_LOADER); // 控制量增加一发弹丸的角度(total_angle已rad)
             hibernate_time = DWT_GetTimeline_ms();                                              // 记录触发指令的时间
             dead_time = 150;// 完成1发弹丸发射的时间
             single_shot_lock = 1;  //执行一次后立刻上锁
@@ -260,7 +260,7 @@ void ShootTask()
         if (single_shot_lock == 0)
         {
             DJIMotorOuterLoop(loader, ANGLE_LOOP);                              // 切换到角度环
-            DJIMotorSetRef(loader, loader->measure.total_angle + 2 * ONE_BULLET_DELTA_ANGLE * REDUCTION_RATIO_LOADER); // 控制量增加一发弹丸的角度
+            DJIMotorSetRef(loader, loader->measure.total_angle + 2 * ONE_BULLET_DELTA_ANGLE * DEGREE_2_RAD * REDUCTION_RATIO_LOADER); // 控制量增加一发弹丸的角度(total_angle已rad)
             hibernate_time = DWT_GetTimeline_ms();                                              // 记录触发指令的时间
             dead_time = 300;// 完成1发弹丸发射的时间
             single_shot_lock = 1;  //执行一次后立刻上锁
@@ -270,14 +270,14 @@ void ShootTask()
         case LOAD_BURSTFIRE:
             single_shot_lock = 0;                  // 切入连发时，为了安全起见也清零锁
             DJIMotorOuterLoop(loader, SPEED_LOOP);
-            DJIMotorSetRef(loader, shoot_speed * 360 * REDUCTION_RATIO_LOADER / 9);
-        // x颗/秒换算成速度: 已知一圈的载弹量,由此计算出1s需要转的角度,注意换算角速度(DJIMotor的速度单位是angle per second)
+            DJIMotorSetRef(loader, shoot_speed * 2.0f * PI * REDUCTION_RATIO_LOADER / 9);
+        // x颗/秒换算成速度: 已知一圈的载弹量,由此计算出1s需要转的角度(DJIMotor的速度单位是rad/s)
         break;
 
         case LOAD_REVERSE:
             single_shot_lock = 0;                  // 切入连发时，为了安全起见也清零锁
             DJIMotorOuterLoop(loader, SPEED_LOOP);
-        DJIMotorSetRef(loader, -5 * 360 * REDUCTION_RATIO_LOADER / 9);             // 固定速度反转
+        DJIMotorSetRef(loader, -5 * 2.0f * PI * REDUCTION_RATIO_LOADER / 9);             // 固定速度反转(rad/s)
         hibernate_time = DWT_GetTimeline_ms();                                              // 记录触发指令的时间
         dead_time = 200;                                                                    // 翻转500ms
         shoot_feedback_data.stalled_flag = 0 ; //清除堵转标志
@@ -290,8 +290,8 @@ void ShootTask()
     // 确定是否开启摩擦轮,后续可能修改为键鼠模式下始终开启摩擦轮(上场时建议一直开启)
     if (shoot_cmd_recv.friction_mode == FRICTION_ON)
     {
-        DJIMotorSetRef(friction_l, 35000);
-        DJIMotorSetRef(friction_r, 35000);
+        DJIMotorSetRef(friction_l, 35000 * DEGREE_2_RAD); // 35000°=611rad/s, speed_aps已rad/s
+        DJIMotorSetRef(friction_r, 35000 * DEGREE_2_RAD);
     }
     else // 关闭摩擦轮
     {

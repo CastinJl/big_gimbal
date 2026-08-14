@@ -67,9 +67,9 @@ typedef enum {
 typedef __packed struct {
     uint8_t header;//0xff
     uint8_t mode;
-    float roll;
-    float pitch;
-    float yaw;
+    float roll;  // rad
+    float pitch; // rad
+    float yaw;   // rad
     float empty1;//占位符，无意义
     float empty2;//占位符，无意义
     uint8_t checksum;
@@ -79,13 +79,13 @@ typedef __packed struct {
 typedef struct __attribute__((packed)) {
     uint8_t header; //= 0xff;
     uint8_t mode;
-    float pitch;
-    float yaw;
+    float pitch;     // rad
+    float yaw;       // rad
     float distance;
-    float pitch_v;
-    float yaw_v;
-    float pitch_acc;
-    float yaw_acc;
+    float pitch_v;   // rad/s
+    float yaw_v;     // rad/s
+    float pitch_acc; // rad/s^2
+    float yaw_acc;   // rad/s^2
     uint8_t checksum;
     uint8_t tail; //=0x0d;
 } RecievePacket_t;

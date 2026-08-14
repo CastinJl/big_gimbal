@@ -162,17 +162,19 @@ static void DecodeDJIMotor(CANInstance *_instance) {
     measure->ecd = ((uint16_t) rxbuff[0]) << 8 | rxbuff[1];
     measure->angle_single_round = ECD_ANGLE_COEF_DJI * (float) measure->ecd;
     measure->speed_aps = (1.0f - SPEED_SMOOTH_COEF) * measure->speed_aps +
-                         RPM_2_ANGLE_PER_SEC * SPEED_SMOOTH_COEF * (float) ((int16_t) (rxbuff[2] << 8 | rxbuff[3]));
+                         RPM_2_ANGLE_PER_SEC * DEGREE_2_RAD * SPEED_SMOOTH_COEF *
+                         (float) ((int16_t) (rxbuff[2] << 8 | rxbuff[3]));
     measure->real_current = (1.0f - CURRENT_SMOOTH_COEF) * measure->real_current +
                             CURRENT_SMOOTH_COEF * (float) ((int16_t) (rxbuff[4] << 8 | rxbuff[5]));
     measure->temperature = rxbuff[6];
 
     // 多圈角度计算,前提是假设两次采样间电机转过的角度小于180°,自己画个图就清楚计算过程了
-    if (measure->ecd - measure->last_ecd > 4096)
+    int16_t ecd_delta = (int16_t) (measure->ecd - measure->last_ecd);
+    if (ecd_delta > 4096)
         measure->total_round--;
-    else if (measure->ecd - measure->last_ecd < -4096)
+    else if (ecd_delta < -4096)
         measure->total_round++;
-    measure->total_angle = measure->total_round * 360 + measure->angle_single_round;
+    measure->total_angle = measure->total_round * PI2 + measure->angle_single_round;
     if(flag==1 && motor->motor_type == M2006 ){
         measure->init_totalangle= motor->measure.total_angle;//记录初始化时电机角度
         flag++;
@@ -263,7 +265,7 @@ static const float motor_power_K[3] = {1.6301e-6f,5.7501e-7f,2.5863e-7f};
 static float EstimatePower(DJIMotorInstance* chassis_motor,float output)
 {
     float I_cmd = chassis_motor->motor_controller.current_PID.Output;
-    float w = chassis_motor->measure.speed_aps /6 ;//aps to rpm
+    float w = chassis_motor->measure.speed_aps * 60.0f / PI2; // rad/s to rpm
 
     float power = motor_power_K[0] * I_cmd * w + motor_power_K[1]*w*w  + motor_power_K[2]*I_cmd*I_cmd;
     return power;
@@ -345,7 +347,7 @@ void DJIMotorControl() {
                 speed_pid_ref += *motor_controller->speed_feedforward_ptr;
 
             if (motor_setting->speed_feedback_source == OTHER_FEED)
-                pid_measure = *motor_controller->other_speed_feedback_ptr * 180 / PI;
+                pid_measure = *motor_controller->other_speed_feedback_ptr;
             else // MOTOR_FEED
             {
                 if(motor_setting->feedback_reverse_flag == FEEDBACK_DIRECTION_REVERSE)
@@ -373,7 +375,7 @@ void DJIMotorControl() {
         if(motor_setting->power_limit_flag == POWER_LIMIT_ON)
         {
             float I_cmd = control_out;
-            float w = measure->speed_aps /6 ;//aps to rpm
+            float w = measure->speed_aps * 60.0f / PI2; // rad/s to rpm
             motor_controller->motor_power_predict = motor_power_K[0] * I_cmd * w + motor_power_K[1]*w*w  + motor_power_K[2]*I_cmd*I_cmd;
 
             //这里K应该使用所有底盘电机一起计算 (在底盘任务中)

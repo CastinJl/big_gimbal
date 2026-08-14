@@ -27,13 +27,13 @@
 
 typedef struct
 {
-    float Gyro[3];  // 角速度
+    float Gyro[3];  // rad/s
     float Accel[3]; // 加速度
     // 还需要增加角速度数据
-    float Roll;
-    float Pitch;
-    float Yaw;
-    float YawTotalAngle;
+    float Roll;          // rad
+    float Pitch;         // rad
+    float Yaw;           // rad
+    float YawTotalAngle; // rad
 } attitude_t; // 最终解算得到的角度,以及yaw转动的总角度(方便多圈控制)
 
 typedef struct
@@ -55,13 +55,13 @@ typedef struct
     // float atanyz;
 
     // IMU量测值
-    float Gyro[3];  // 角速度
+    float Gyro[3];  // rad/s
     float Accel[3]; // 加速度
     // 位姿
-    float Roll;
-    float Pitch;
-    float Yaw;
-    float YawTotalAngle;
+    float Roll;          // rad
+    float Pitch;         // rad
+    float Yaw;           // rad
+    float YawTotalAngle; // rad
 
     uint8_t init;
 } INS_t;
@@ -73,9 +73,9 @@ typedef struct
 
     float scale[3];
 
-    float Yaw;
-    float Pitch;
-    float Roll;
+    float Yaw;   // installation offset, rad
+    float Pitch; // installation offset, rad
+    float Roll;  // installation offset, rad
 } IMU_Param_t;
 
 /**
@@ -101,26 +101,6 @@ void INS_Task(void);
  * @param dt 距离上次调用的时间间隔
  */
 void QuaternionUpdate(float *q, float gx, float gy, float gz, float dt);
-
-/**
- * @brief 四元数转换成欧拉角 ZYX
- *
- * @param q
- * @param Yaw
- * @param Pitch
- * @param Roll
- */
-void QuaternionToEularAngle(float *q, float *Yaw, float *Pitch, float *Roll);
-
-/**
- * @brief ZYX欧拉角转换为四元数
- *
- * @param Yaw
- * @param Pitch
- * @param Roll
- * @param q
- */
-void EularAngleToQuaternion(float Yaw, float Pitch, float Roll, float *q);
 
 /**
  * @brief 机体系到惯性系的变换函数

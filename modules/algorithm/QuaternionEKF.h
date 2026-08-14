@@ -35,7 +35,7 @@ typedef struct
     float q[4];        // 四元数估计值
     float GyroBias[3]; // 陀螺仪零偏估计值
 
-    float Gyro[3];
+    float Gyro[3]; // rad/s
     float Accel[3];
 
     float OrientationCosine[3];
@@ -45,11 +45,11 @@ typedef struct
     float accl_norm;
     float AdaptiveGainScale;
 
-    float Roll;
-    float Pitch;
-    float Yaw;
+    float Roll; // rad
+    float Pitch; // rad
+    float Yaw; // rad
 
-    float YawTotalAngle;
+    float YawTotalAngle; // rad
 
     float Q1; // 四元数更新过程噪声
     float Q2; // 陀螺仪零偏过程噪声

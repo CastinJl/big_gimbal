@@ -218,12 +218,12 @@ void DMMotorControl(){
         if ((setting->close_loop_type & ANGLE_LOOP) && setting->outer_loop_type == ANGLE_LOOP)
         {
             if (setting->angle_feedback_source == OTHER_FEED) {
-                pid_measure = *motor_controller->other_angle_feedback_ptr*PI/180;
-                angle_pid_ref = motor->motor_controller.pid_ref*PI/180;
+                pid_measure = *motor_controller->other_angle_feedback_ptr;
+                angle_pid_ref = motor->motor_controller.pid_ref;
             }
             else {
                 pid_measure = measure->position; // MOTOR_FEED,对total angle闭环,防止在边界处出现突跃
-                angle_pid_ref = motor->motor_controller.pid_ref*PI/180;
+                angle_pid_ref = motor->motor_controller.pid_ref;
             }
             if (parallel_angle_speed) {
                 angle_pid_ref = motor_controller->angle_ref_ptr != NULL

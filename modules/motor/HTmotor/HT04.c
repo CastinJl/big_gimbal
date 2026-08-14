@@ -161,8 +161,8 @@ __attribute__((noreturn)) void HTMotorTask(void const *argument)
                 pid_measure = *motor->other_angle_feedback_ptr;
             else
                 pid_measure = measure->total_angle;
-            // measure单位是rad,ref是角度,统一到angle下计算,方便建模
-            pid_ref = PIDCalculate(&motor->angle_PID, pid_measure * RAD_2_DEGREE, pid_ref);
+            // measure与ref均为rad, 统一rad计算
+            pid_ref = PIDCalculate(&motor->angle_PID, pid_measure, pid_ref);
         }
 
         if ((setting->close_loop_type & SPEED_LOOP) && setting->outer_loop_type & (ANGLE_LOOP | SPEED_LOOP))
@@ -174,8 +174,8 @@ __attribute__((noreturn)) void HTMotorTask(void const *argument)
                 pid_measure = *motor->other_speed_feedback_ptr;
             else
                 pid_measure = measure->speed_rads;
-            // measure单位是rad / s ,ref是angle per sec,统一到angle下计算
-            pid_ref = PIDCalculate(&motor->speed_PID, pid_measure * RAD_2_DEGREE, pid_ref);
+            // measure与ref均为rad/s, 统一rad计算
+            pid_ref = PIDCalculate(&motor->speed_PID, pid_measure, pid_ref);
         }
 
         if (setting->feedforward_flag & CURRENT_FEEDFORWARD)

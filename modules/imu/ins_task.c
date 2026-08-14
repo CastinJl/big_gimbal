@@ -232,12 +232,12 @@ static void IMU_Param_Correction(IMU_Param_t *param, float gyro[3], float accel[
     if (fabsf(param->Yaw - lastYawOffset) > 0.001f ||
         fabsf(param->Pitch - lastPitchOffset) > 0.001f ||
         fabsf(param->Roll - lastRollOffset) > 0.001f || param->flag) {
-        cosYaw = arm_cos_f32(param->Yaw / 57.295779513f);
-        cosPitch = arm_cos_f32(param->Pitch / 57.295779513f);
-        cosRoll = arm_cos_f32(param->Roll / 57.295779513f);
-        sinYaw = arm_sin_f32(param->Yaw / 57.295779513f);
-        sinPitch = arm_sin_f32(param->Pitch / 57.295779513f);
-        sinRoll = arm_sin_f32(param->Roll / 57.295779513f);
+        cosYaw = arm_cos_f32(param->Yaw);
+        cosPitch = arm_cos_f32(param->Pitch);
+        cosRoll = arm_cos_f32(param->Roll);
+        sinYaw = arm_sin_f32(param->Yaw);
+        sinPitch = arm_sin_f32(param->Pitch);
+        sinRoll = arm_sin_f32(param->Roll);
 
         // 1.yaw(alpha) 2.pitch(beta) 3.roll(gamma)
         c_11 = cosYaw * cosRoll + sinYaw * sinPitch * sinRoll;
@@ -304,33 +304,4 @@ void QuaternionUpdate(float *q, float gx, float gy, float gz, float dt) {
     q[1] += (qa * gx + qc * gz - q[3] * gy);
     q[2] += (qa * gy - qb * gz + q[3] * gx);
     q[3] += (qa * gz + qb * gy - qc * gx);
-}
-
-/**
- * @brief        Convert quaternion to eular angle
- */
-void QuaternionToEularAngle(float *q, float *Yaw, float *Pitch, float *Roll) {
-    *Yaw = atan2f(2.0f * (q[0] * q[3] + q[1] * q[2]), 2.0f * (q[0] * q[0] + q[1] * q[1]) - 1.0f) * 57.295779513f;
-    *Pitch = atan2f(2.0f * (q[0] * q[1] + q[2] * q[3]), 2.0f * (q[0] * q[0] + q[3] * q[3]) - 1.0f) * 57.295779513f;
-    *Roll = asinf(2.0f * (q[0] * q[2] - q[1] * q[3])) * 57.295779513f;
-}
-
-/**
- * @brief        Convert eular angle to quaternion
- */
-void EularAngleToQuaternion(float Yaw, float Pitch, float Roll, float *q) {
-    float cosPitch, cosYaw, cosRoll, sinPitch, sinYaw, sinRoll;
-    Yaw /= 57.295779513f;
-    Pitch /= 57.295779513f;
-    Roll /= 57.295779513f;
-    cosPitch = arm_cos_f32(Pitch / 2);
-    cosYaw = arm_cos_f32(Yaw / 2);
-    cosRoll = arm_cos_f32(Roll / 2);
-    sinPitch = arm_sin_f32(Pitch / 2);
-    sinYaw = arm_sin_f32(Yaw / 2);
-    sinRoll = arm_sin_f32(Roll / 2);
-    q[0] = cosPitch * cosRoll * cosYaw + sinPitch * sinRoll * sinYaw;
-    q[1] = sinPitch * cosRoll * cosYaw - cosPitch * sinRoll * sinYaw;
-    q[2] = sinPitch * cosRoll * sinYaw + cosPitch * sinRoll * cosYaw;
-    q[3] = cosPitch * cosRoll * sinYaw - sinPitch * sinRoll * cosYaw;
 }
