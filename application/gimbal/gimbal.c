@@ -41,14 +41,23 @@ static Gimbal_GrayFF yaw_gray_ff;
 #define SYS_ID_MAX_FREQ 100.0f   // 终止频率 50Hz
 #define SYS_ID_DURATION 90.0f   // 扫频持续时间 30秒
 
-// Pitch 角度系统辨识 PRBS 配置
-// PRBS（伪随机二值序列）不是扫频信号，而是在两个角度设定值之间跳变。
-#define PITCH_SYS_ID_MODE_ON   0
-#define PITCH_SYS_ID_GRAVITY_FF 0  // 1: 保留重力补偿，0: 纯力矩输入（需机械支撑）
-#define PITCH_PRBS_HIGH_TORQUE  0.30f
+// Pitch 角度系统辨识 PRBS 配置 (扫频式)
+// PRBS（伪随机二值序列）在两个力矩电平之间跳变; 保持时间扫频覆盖频带, 幅度随频率缩放控摆幅
+#define PITCH_SYS_ID_MODE_ON   1
+#define PITCH_SYS_ID_GRAVITY_FF 1  // 1: 保留重力补偿，0: 纯力矩输入（需机械支撑）
+#define PITCH_PRBS_HIGH_TORQUE  0.30f  // 满幅力矩上限(指令单位)
 #define PITCH_PRBS_LOW_TORQUE  (-0.30f)
 #define PITCH_PRBS_BITS       10U  //表示 LFSR 使用 10 位寄存器，越大扫频时间越久
 #define PITCH_PRBS_SEED       0x0001U
+#define PITCH_PRBS_HOLD_START_MS 10U    // 起始保持(覆盖~50Hz上端)
+#define PITCH_PRBS_HOLD_END_MS   100U   // 结束保持(覆盖~5Hz), 满幅安全上限
+#define PITCH_PRBS_HOLD_STEPS    16U    // 档数(几何递增)
+#define PITCH_PRBS_BITS_PER_STEP 64U    // 每档位数
+#define PITCH_SYS_ID_LIMIT_DEG   10.0f  // 软件角度限位(|Pitch|越限→力矩0), 保持10°以内
+#define PITCH_SYS_ID_HOLD_MS     500U   // 起始0力矩悬停验证窗口(按1kHz调用≈500ms)
+#define PITCH_J_EST    0.01f            // pitch 惯量估计(控摆幅用, 可保守)
+#define PITCH_KU_EST   0.884f           // 力矩指令单位→N*m
+#define PITCH_SAFE_RAD 0.15f            // 允许摆幅 ~8.6°
 
 #if SYS_ID_MODE_ON && PITCH_SYS_ID_MODE_ON
 #error "Yaw and pitch system identification modes cannot be enabled together."
@@ -56,6 +65,7 @@ static Gimbal_GrayFF yaw_gray_ff;
 
 // 系统辨识全局变量
 static float sys_id_tick = 0.0f;
+static  float sys_id_target_speed;
 static uint16_t pitch_prbs_lfsr = PITCH_PRBS_SEED;
 
 /**
@@ -90,22 +100,72 @@ float Gimbal_SysID_Generate_Chirp(float dt) {
  *        使用 x^10 + x^3 + 1 的 10 位 LFSR，序列长度为 1023。
  */
 float Gimbal_SysID_Generate_Pitch_PRBS(void) {
-    // LFSR 的种子不能为 0，否则寄存器会永久保持为 0。
+    // 扫频式 PRBS: 保持时间 10→100ms 几何递增覆盖频带; 幅度随保持时间缩放控摆幅
+    static uint8_t sweep_done = 0U;
+    static uint32_t run_cnt = 0;        // 软启动窗口计数
+    static uint16_t hold_ms = 0;        // 当前档保持时间(调用次数)
+    static uint16_t hold_cnt = 0;       // 当前电平已保持次数
+    static uint16_t bit_in_step = 0;    // 当前档已跑位数
+    static uint16_t step_idx = 0;       // 当前档号
+    static float current_prbs_torque = 0.0f;
+
+    // 扫频已完成: 回到纯重力悬停
+    if (sweep_done) {
+        return 0.0f;
+    }
+
+    // 1. 软启动: 前 HOLD_MS 次调用输出 0, 纯重力悬停验证
+    if (run_cnt < PITCH_SYS_ID_HOLD_MS) {
+        run_cnt++;
+        return 0.0f;
+    }
+
+    // 2. 电平保持: 每 hold_ms 次调用切一次电平
+    if (hold_ms == 0U) {
+        hold_ms = PITCH_PRBS_HOLD_START_MS;
+    }
+    if (++hold_cnt < hold_ms) {
+        return current_prbs_torque;
+    }
+    hold_cnt = 0U;
+
+    // 3. LFSR 取符号 (x^10+x^3+1, 0 种子防护)
     if (pitch_prbs_lfsr == 0U) {
         pitch_prbs_lfsr = PITCH_PRBS_SEED;
     }
-
     const uint16_t taps = (uint16_t)((1U << (PITCH_PRBS_BITS - 1U)) |
                                      (1U << (3U - 1U)));
     const uint16_t output_bit = pitch_prbs_lfsr & 1U;
-
     pitch_prbs_lfsr >>= 1U;
     if (output_bit != 0U) {
         pitch_prbs_lfsr ^= taps;
     }
 
-    return output_bit != 0U ? PITCH_PRBS_HIGH_TORQUE
-                            : PITCH_PRBS_LOW_TORQUE;
+    // 4. 幅度随保持时间缩放: A(T)=min(0.30, 2*SAFE*J/(Ku*T^2)), 控摆幅不越限
+    float T = (float)hold_ms * 0.001f;
+    float amp = PITCH_PRBS_HIGH_TORQUE;
+    float amp_lim = (2.0f * PITCH_SAFE_RAD * PITCH_J_EST) / (PITCH_KU_EST * T * T);
+    if (amp_lim < amp) {
+        amp = amp_lim;
+    }
+    current_prbs_torque = (output_bit != 0U) ? amp : -amp;
+
+    // 5. 档位推进: 每 BITS_PER_STEP 位进一档, 保持时间几何递增; 扫频结束停止
+    if (++bit_in_step >= PITCH_PRBS_BITS_PER_STEP) {
+        bit_in_step = 0U;
+        step_idx++;
+        if (step_idx >= PITCH_PRBS_HOLD_STEPS) {
+            sweep_done = 1U;    // 扫频完成, 停止激励
+            return 0.0f;
+        }
+        float ratio = powf((float)PITCH_PRBS_HOLD_END_MS / (float)PITCH_PRBS_HOLD_START_MS,
+                           1.0f / (float)PITCH_PRBS_HOLD_STEPS);
+        float t_f = (float)PITCH_PRBS_HOLD_START_MS * powf(ratio, (float)step_idx);
+        uint32_t t = (uint32_t)(t_f + 0.5f);
+        hold_ms = (t > PITCH_PRBS_HOLD_END_MS) ? PITCH_PRBS_HOLD_END_MS : (uint16_t)t;
+    }
+
+    return current_prbs_torque;
 }
 
 static RefTraj_t yaw_traj;
@@ -132,10 +192,7 @@ void SPEED_TD(float v_cmd, float amax, RefTraj_t *t)
 
 static float Compute_Torque(Gimbal_GrayFF *ff)
 {
-    ff->fbk_pos = gimbal_IMU_data->YawTotalAngle *DEGREE_2_RAD;
-    ff->fbk_vel = gimbal_IMU_data->Gyro[2];
     // ref_pos/ref_vel/ref_acc 由GimbalTask通过本地轨迹生成 + 视觉覆盖填好
-
     ff->torque_ff = J * ff->ref_acc + B * ff->ref_vel + Tc * tanhf(Friction_Smooth * ff->ref_vel);
 
     ff->out_current = ff->torque_ff/Ku;
@@ -328,12 +385,22 @@ void GimbalTask() {
 #if SYS_ID_MODE_ON
             // 辨识输入必须是纯 chirp，不能叠加正常闭环和模型前馈。
             yaw_current = 0.0f;
-            sys_id_target_speed = Gimbal_SysID_Generate_Chirp(yaw_profile_dt);
+            sys_id_target_speed = Gimbal_SysID_Generate_Chirp(0.001f);
             DMMotorSetRef(yaw_motor, sys_id_target_speed);
             DMMotorSetRef(pitch_motor, 0.0f);
+#elif PITCH_SYS_ID_MODE_ON
+            // pitch 辨识: 开环力矩注入 PRBS, 保留重力补偿; yaw 不给前馈
+            yaw_current = 0.0f;
+            DMMotorSetRef(yaw_motor, 0.0f);
+            // 开环保护: 角度越限 → 力矩 0
+            sys_id_target_speed = (fabsf(gimbal_IMU_data->Pitch) > PITCH_SYS_ID_LIMIT_DEG)
+                                      ? 0.0f
+                                      : Gimbal_SysID_Generate_Pitch_PRBS();
+            DMMotorSetRef(pitch_motor, sys_id_target_speed);
 #else
-            yaw_current = //Compute_Torque(&yaw_gray_ff);
-            
+
+            yaw_current = yaw_traj.test_current; //Compute_Torque(&yaw_gray_ff);
+
             DMMotorSetRef(yaw_motor, 0.0f);
             DMMotorSetRef(pitch_motor,gimbal_cmd_recv.pitch);
 #endif
@@ -353,15 +420,6 @@ void GimbalTask() {
                 pitch_motor->motor_controller.speed_PID.Iout = 0.0f;
             }
 
-            #if SYS_ID_MODE_ON
-                        // --- 系统辨识模式 ---
-                        DMMotorEnable(yaw_motor);
-                        DMMotorEnable(pitch_motor);
-                        //生成激励信号
-                        sys_id_target_speed = Gimbal_SysID_Generate_Chirp(0.001f);
-                        DMMotorSetRef(yaw_motor, sys_id_target_speed);
-                        DMMotorSetRef(pitch_motor, 0); // Pitch 保持 0
-            #endif
             break;
 
 
