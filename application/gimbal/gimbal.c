@@ -42,22 +42,21 @@ static Gimbal_GrayFF yaw_gray_ff;
 #define SYS_ID_DURATION 90.0f   // 扫频持续时间 30秒
 
 // Pitch 角度系统辨识 PRBS 配置 (扫频式)
-// PRBS（伪随机二值序列）在两个力矩电平之间跳变; 保持时间扫频覆盖频带, 幅度随频率缩放控摆幅
+// PRBS（伪随机二值序列）在两个力矩电平之间跳变; 频率线性扫频覆盖频带, 幅度随保持时间缩放控摆幅
 #define PITCH_SYS_ID_MODE_ON   1
 #define PITCH_SYS_ID_GRAVITY_FF 1  // 1: 保留重力补偿，0: 纯力矩输入（需机械支撑）
-#define PITCH_PRBS_HIGH_TORQUE  0.30f  // 满幅力矩上限(指令单位)
-#define PITCH_PRBS_LOW_TORQUE  (-0.30f)
-#define PITCH_PRBS_BITS       10U  //表示 LFSR 使用 10 位寄存器，越大扫频时间越久
+#define PITCH_PRBS_HIGH_TORQUE 0.30f   // 满幅力矩上限(指令单位)
+#define PITCH_PRBS_BITS       10U      // LFSR 位宽, x^10+x^3+1 本原多项式, 周期 1023
 #define PITCH_PRBS_SEED       0x0001U
-#define PITCH_PRBS_HOLD_START_MS 10U    // 起始保持(覆盖~50Hz上端)
-#define PITCH_PRBS_HOLD_END_MS   100U   // 结束保持(覆盖~5Hz), 满幅安全上限
-#define PITCH_PRBS_HOLD_STEPS    16U    // 档数(几何递增)
-#define PITCH_PRBS_BITS_PER_STEP 64U    // 每档位数
+#define PITCH_PRBS_FREQ_START_HZ 5.0f   // 扫频起始频率(低频端, 保持200ms, 幅度受T²限)
+#define PITCH_PRBS_FREQ_END_HZ   200.0f // 扫频终止频率(高频端, 保持5ms)
+#define PITCH_PRBS_HOLD_STEPS    16U    // 档数(频率线性递增)
+#define PITCH_PRBS_BITS_PER_STEP 128U   // 每档位数(总时长~55s)
 #define PITCH_SYS_ID_LIMIT_RAD   (10.0f * DEGREE_2_RAD)
 #define PITCH_SYS_ID_HOLD_MS     500U   // 起始0力矩悬停验证窗口(按1kHz调用≈500ms)
-#define PITCH_J_EST    0.01f            // pitch 惯量估计(控摆幅用, 可保守)
+#define PITCH_J_EST    0.02552f         // pitch 惯量(用模型J; 幅度限幅用, 勿再改小)
 #define PITCH_KU_EST   0.884f           // 力矩指令单位→N*m
-#define PITCH_SAFE_RAD 0.15f            // 允许摆幅 ~8.6°
+#define PITCH_SAFE_RAD 0.15f            // 单拍摆幅上限 ~8.6°
 
 #if SYS_ID_MODE_ON && PITCH_SYS_ID_MODE_ON
 #error "Yaw and pitch system identification modes cannot be enabled together."
@@ -100,7 +99,7 @@ float Gimbal_SysID_Generate_Chirp(float dt) {
  *        使用 x^10 + x^3 + 1 的 10 位 LFSR，序列长度为 1023。
  */
 float Gimbal_SysID_Generate_Pitch_PRBS(void) {
-    // 扫频式 PRBS: 保持时间 10→100ms 几何递增覆盖频带; 幅度随保持时间缩放控摆幅
+    // 扫频式 PRBS: 频率 5→200Hz 线性递增, 每档 BITS_PER_STEP 位; 幅度随保持时间缩放
     static uint8_t sweep_done = 0U;
     static uint32_t run_cnt = 0;        // 软启动窗口计数
     static uint16_t hold_ms = 0;        // 当前档保持时间(调用次数)
@@ -115,14 +114,14 @@ float Gimbal_SysID_Generate_Pitch_PRBS(void) {
     }
 
     // 1. 软启动: 前 HOLD_MS 次调用输出 0, 纯重力悬停验证
-    if (run_cnt < PITCH_SYS_ID_HOLD_MS) {
-        run_cnt++;
+    run_cnt++;
+    if (run_cnt <= PITCH_SYS_ID_HOLD_MS) {
         return 0.0f;
     }
 
     // 2. 电平保持: 每 hold_ms 次调用切一次电平
     if (hold_ms == 0U) {
-        hold_ms = PITCH_PRBS_HOLD_START_MS;
+        hold_ms = (uint16_t)(1000.0f / PITCH_PRBS_FREQ_START_HZ + 0.5f);
     }
     if (++hold_cnt < hold_ms) {
         return current_prbs_torque;
@@ -141,7 +140,7 @@ float Gimbal_SysID_Generate_Pitch_PRBS(void) {
         pitch_prbs_lfsr ^= taps;
     }
 
-    // 4. 幅度随保持时间缩放: A(T)=min(0.30, 2*SAFE*J/(Ku*T^2)), 控摆幅不越限
+    // 4. 幅度随保持时间缩放: A(T)=min(HIGH, 2*SAFE*J/(Ku*T^2)), 控摆幅不越限
     float T = (float)hold_ms * 0.001f;
     float amp = PITCH_PRBS_HIGH_TORQUE;
     float amp_lim = (2.0f * PITCH_SAFE_RAD * PITCH_J_EST) / (PITCH_KU_EST * T * T);
@@ -150,7 +149,7 @@ float Gimbal_SysID_Generate_Pitch_PRBS(void) {
     }
     current_prbs_torque = (output_bit != 0U) ? amp : -amp;
 
-    // 5. 档位推进: 每 BITS_PER_STEP 位进一档, 保持时间几何递增; 扫频结束停止
+    // 5. 档位推进: 每 BITS_PER_STEP 位进一档, 频率线性递增; 扫频结束停止
     if (++bit_in_step >= PITCH_PRBS_BITS_PER_STEP) {
         bit_in_step = 0U;
         step_idx++;
@@ -158,11 +157,10 @@ float Gimbal_SysID_Generate_Pitch_PRBS(void) {
             sweep_done = 1U;    // 扫频完成, 停止激励
             return 0.0f;
         }
-        float ratio = powf((float)PITCH_PRBS_HOLD_END_MS / (float)PITCH_PRBS_HOLD_START_MS,
-                           1.0f / (float)PITCH_PRBS_HOLD_STEPS);
-        float t_f = (float)PITCH_PRBS_HOLD_START_MS * powf(ratio, (float)step_idx);
-        uint32_t t = (uint32_t)(t_f + 0.5f);
-        hold_ms = (t > PITCH_PRBS_HOLD_END_MS) ? PITCH_PRBS_HOLD_END_MS : (uint16_t)t;
+        float f_i = PITCH_PRBS_FREQ_START_HZ
+                  + (PITCH_PRBS_FREQ_END_HZ - PITCH_PRBS_FREQ_START_HZ)
+                    * (float)step_idx / (float)PITCH_PRBS_HOLD_STEPS;
+        hold_ms = (uint16_t)(1000.0f / f_i + 0.5f);
     }
 
     return current_prbs_torque;
