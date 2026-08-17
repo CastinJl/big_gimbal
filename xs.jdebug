@@ -33,7 +33,6 @@ void OnProjectLoad (void) {
   //
   // User settings
   //
-  Edit.SysVar (VAR_HSS_SPEED, FREQ_5_KHZ);
   File.Open ("$(ProjectDir)/cmake-build-debug/basic_framework.elf");
 }
 

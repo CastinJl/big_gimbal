@@ -28,6 +28,7 @@ static DaemonInstance *vision_daemon_instance;
 void VisionSetFlag(uint8_t enemy_color)
 {
     send_data.mode = enemy_color;
+
 }
 
 //void VisionSetAltitude(float yaw, float pitch)
@@ -134,16 +135,17 @@ static void DecodeVision(uint16_t recv_len)
     //uint16_t flag_register;
     //get_protocol_info(vis_recv_buff, &flag_register, (uint8_t *)&recv_data.pitch);
     //    // TODO: code to resolve flag_register;
-    if (recv_len >= VISION_RECV_SIZE &&
-        vis_recv_buff[0] == 0xff &&
-        vis_recv_buff[31] == 0x0d &&
-        vis_recv_buff[30] == crc_8(vis_recv_buff, 30)) {
-        memcpy(&recv_data, vis_recv_buff, VISION_RECV_SIZE);
-        DaemonReload(vision_daemon_instance);
+    if (recv_len >= 32 && vis_recv_buff[0] == 0xff) {
+        if (vis_recv_buff[31] == 0x0d) {
+            if (vis_recv_buff[30] == crc_8(vis_recv_buff, 30)) {
+                memcpy(&recv_data, vis_recv_buff, 32);
+                DaemonReload(vision_daemon_instance);
+            }
+        }
     }
 }
 
-/* 瑙嗚閫氫俊鍒濆鍖?*/
+
 RecievePacket_t *VisionInit(void)
 {
     //    UNUSED(_handle); // 浠呬负浜嗘秷闄よ鍛?

@@ -187,10 +187,20 @@ static void Pitch_Speed_Limit_Update() {
     }
     // IMU 软限位
     float predicted_imu = current_imu + delta_angle;
-    if (predicted_imu > PITCH_MAX_ANGLE) delta_angle = PITCH_MAX_ANGLE - current_imu;
-    else if (predicted_imu < PITCH_MIN_ANGLE) delta_angle = PITCH_MIN_ANGLE - current_imu;
+    if (predicted_imu > PITCH_MAX_ANGLE) {
+        delta_angle = PITCH_MAX_ANGLE - current_imu;
+        if (gimbal_cmd_send.pitch_speed > 0.0f)   // 只挡继续上顶, 反推放行
+            gimbal_cmd_send.pitch_speed = 0.0f;
+        gimbal_cmd_send.pitch = PITCH_MAX_ANGLE;
+    }
+    else if (predicted_imu < PITCH_MIN_ANGLE) {
+        delta_angle = PITCH_MIN_ANGLE - current_imu;
+        if (gimbal_cmd_send.pitch_speed < 0.0f)   // 只挡继续下压, 反推放行
+            gimbal_cmd_send.pitch_speed = 0.0f;
+        gimbal_cmd_send.pitch = PITCH_MIN_ANGLE;
+    }
 
-    gimbal_cmd_send.pitch_speed = delta_angle / dt; // 反推限速
+
 }
 
 static void Gimbal_Test_Signal_Generator(void) {
@@ -232,7 +242,7 @@ static void Gimbal_Test_Signal_Generator(void) {
 
 static void CalcOffsetAngle() {
     // 计算偏移角度
-    float offset = gimbal_fetch_data.yaw_motor_single_round_angle/3.14159*PI - YAW_CHASSIS_ALIGN_RAD;
+    float offset = gimbal_fetch_data.yaw_motor_single_round_angle - YAW_CHASSIS_ALIGN_RAD;
     // 将偏移角度归一化
     if (offset > PI) {
         offset -= 2*PI;
@@ -286,10 +296,7 @@ void System_Reset(void) {
 
 static void auto_aim_mode() {
         // 视觉控制云台
-            float single_angle_yaw_now = gimbal_fetch_data.gimbal_imu_data.Yaw;
-            diff_yaw = vision_recv_data->yaw - single_angle_yaw_now; // 视觉 yaw 与 IMU Yaw 均为弧度
-            float yaw_err = diff_yaw;
-            yaw_err_for_test = yaw_err;
+            diff_yaw = vision_recv_data->yaw ;
 
             if (diff_yaw > PI)
                 diff_yaw -= 2.0f * PI;
@@ -297,7 +304,7 @@ static void auto_aim_mode() {
                 diff_yaw += 2.0f * PI;
 
             // 调整云台角度
-            gimbal_cmd_send.yaw = gimbal_fetch_data.gimbal_imu_data.YawTotalAngle + diff_yaw;
+            gimbal_cmd_send.yaw = diff_yaw;
             gimbal_cmd_send.pitch = vision_recv_data->pitch; // 视觉 pitch 为弧度
             if (!gimbal_fetch_data.pitch_motor_lost_flag) {
                 Pitch_Dynamic_Limit_Update();

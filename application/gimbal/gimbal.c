@@ -136,7 +136,7 @@ void GimbalInit() {
             },
             .controller_param_init_config = {
                     .angle_PID = {
-                            .Kp = 0.0f,//并行扭矩量纲起始值(原级联30);实车重标定
+                            .Kp = 1.0f,//并行扭矩量纲起始值(原级联30);实车重标定
                             .Ki = 0.0f,//0
                             .Kd = 0.0f,//0.0f,//0.005f
                             .DeadBand = 0.0f,
@@ -191,7 +191,7 @@ void GimbalInit() {
             },
             .controller_param_init_config = {
                     .angle_PID = {
-                            .Kp = 0.0f,//并行扭矩量纲起始值(原级联50);实车重标定
+                            .Kp = 1.0f,//并行扭矩量纲起始值(原级联50);实车重标定
                             .Ki = 0.0f,
                             .Kd = 0.0f,
                             .Improve = PID_Trapezoid_Intergral | PID_Integral_Limit | PID_Derivative_On_Measurement,
@@ -200,7 +200,7 @@ void GimbalInit() {
 
                     },
                     .speed_PID = {
-                            .Kp = 0.0f,//并行扭矩量纲起始值(原级联2);阻尼,实车重标定
+                            .Kp = 1.0f,//并行扭矩量纲起始值(原级联2);阻尼,实车重标定
                             .Ki = 0.0f,
                             .Kd = 0.0f,
                             .Improve = PID_Integral_Limit | PID_Derivative_On_Measurement,
@@ -316,6 +316,14 @@ void GimbalTask() {
                 // 无视觉: 用本地轨迹生成的 ref_vel/ref_acc
                 SPEED_TD(gimbal_cmd_recv.yaw_speed, YAW_ACC_MAX, &yaw_traj);
                 SPEED_TD(gimbal_cmd_recv.pitch_speed, PITCH_ACC_MAX, &pitch_traj);
+                // pitch 限位: 只挡越界方向, 反推放行 → 到限幅能回去
+                if (pitch_traj.pos_f > PITCH_MAX_ANGLE) {
+                    pitch_traj.pos_f = PITCH_MAX_ANGLE;
+                    if (pitch_traj.vel_ref > 0.0f) pitch_traj.vel_ref = 0.0f;
+                } else if (pitch_traj.pos_f < PITCH_MIN_ANGLE) {
+                    pitch_traj.pos_f = PITCH_MIN_ANGLE;
+                    if (pitch_traj.vel_ref < 0.0f) pitch_traj.vel_ref = 0.0f;
+                }
                 yaw_gray_ff.ref_pos = yaw_traj.pos_f;
                 yaw_gray_ff.ref_vel = yaw_traj.vel_ref;
                 yaw_gray_ff.ref_acc = yaw_traj.acc_ref;
