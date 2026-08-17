@@ -167,6 +167,32 @@ static void Pitch_Dynamic_Limit_Update() {
     if (gimbal_cmd_send.pitch < PITCH_MIN_ANGLE) gimbal_cmd_send.pitch = PITCH_MIN_ANGLE;
 }
 
+/**
+ * @brief Pitch 速度软限位（速度输入模式用）
+ * @note  一步预测角度增量(不积分 ref_pos, 避免与 gimbal 轨迹重复), 越界软钳制速度
+ */
+static void Pitch_Speed_Limit_Update() {
+    float current_ecd = gimbal_fetch_data.pitch_motor_single_round_angle;
+    float current_imu = gimbal_fetch_data.gimbal_imu_data.Pitch;
+    float dt = CONTROL_PERIOD_S;
+    float delta_angle = gimbal_cmd_send.pitch_speed * dt; // 一步角度增量
+
+    // ECD 软限位
+    float predicted_ecd = current_ecd + delta_angle;
+    if (predicted_ecd > PITCH_ECD_UPPER_LIMIT) {
+        delta_angle = PITCH_ECD_UPPER_LIMIT - current_ecd;
+    }
+    else if (predicted_ecd < PITCH_ECD_LOWER_LIMIT) {
+        delta_angle = PITCH_ECD_LOWER_LIMIT - current_ecd;
+    }
+    // IMU 软限位
+    float predicted_imu = current_imu + delta_angle;
+    if (predicted_imu > PITCH_MAX_ANGLE) delta_angle = PITCH_MAX_ANGLE - current_imu;
+    else if (predicted_imu < PITCH_MIN_ANGLE) delta_angle = PITCH_MIN_ANGLE - current_imu;
+
+    gimbal_cmd_send.pitch_speed = delta_angle / dt; // 反推限速
+}
+
 static void Gimbal_Test_Signal_Generator(void) {
 
 
@@ -178,7 +204,7 @@ static void Gimbal_Test_Signal_Generator(void) {
         gimbal_cmd_send.yaw_speed = TEST_AMP_YAW_SPEED_RAD_S * sinf(2 * PI * TEST_FREQ_HZ * test_time_tick);
 
         // Pitch: 同理
-        gimbal_cmd_send.pitch = 0;
+        gimbal_cmd_send.pitch_speed = 0;
     }
     // 2. 阶跃模式 (Step Response / Square Wave)
     else if (current_test_mode == TEST_STEP) {
@@ -189,18 +215,18 @@ static void Gimbal_Test_Signal_Generator(void) {
         if (time_ms % (STEP_INTERVAL_MS * 2) < STEP_INTERVAL_MS) {
             // High Level
             gimbal_cmd_send.yaw_speed = TEST_AMP_YAW_SPEED_RAD_S;
-            gimbal_cmd_send.pitch = 0;
+            gimbal_cmd_send.pitch_speed = 0;
         } else {
             // Low Level (回到中心或反向)
             gimbal_cmd_send.yaw_speed = -TEST_AMP_YAW_SPEED_RAD_S;
-            gimbal_cmd_send.pitch = 0;
+            gimbal_cmd_send.pitch_speed = 0;
         }
     }
 
     // 强制设置模式，确保云台响应
     //gimbal_cmd_send.gimbal_mode = GIMBAL_GYRO_MODE;
     if (!gimbal_fetch_data.pitch_motor_lost_flag) {
-        Pitch_Dynamic_Limit_Update();
+        Pitch_Speed_Limit_Update();
     }
 }
 
@@ -308,18 +334,18 @@ static void RemoteControlSet() {
         // 待添加,视觉会发来目标角速度和角加速度 rad/s  rad/s^2
         // ...
         if (gimbal_cmd_send.gimbal_mode!=GIMBAL_FREE_MODE) {
-            gimbal_cmd_send.yaw_speed = -0.0025f * DEGREE_2_RAD * (float) rc_data[TEMP].rc.rocker_l_;
+            gimbal_cmd_send.yaw_speed = -0.25f * DEGREE_2_RAD * (float) rc_data[TEMP].rc.rocker_l_;
             //gimbal_cmd_send.pitch += 0.001f * (float) rc_data[TEMP].rc.rocker_l1;
-            gimbal_cmd_send.pitch += 0.0025f * DEGREE_2_RAD * (float) rc_data[TEMP].rc.rocker_l1;
+            gimbal_cmd_send.pitch_speed = 0.25f * DEGREE_2_RAD * (float) rc_data[TEMP].rc.rocker_l1;
             gimbal_cmd_send.vision_yaw_speed_ff = -0.5f * DEGREE_2_RAD * (float) rc_data[TEMP].rc.rocker_l_;
             gimbal_cmd_send.vision_pitch_speed_ff = 0.5f * DEGREE_2_RAD * (float) rc_data[TEMP].rc.rocker_l1;
             gimbal_cmd_send.vision_yaw_acc_ff = 0.0f;
             gimbal_cmd_send.vision_pitch_acc_ff = 0.0f;
             if (!gimbal_fetch_data.pitch_motor_lost_flag) {
-                Pitch_Dynamic_Limit_Update();
+                Pitch_Speed_Limit_Update();
             }
         }
-        Gimbal_Test_Signal_Generator();
+        // Gimbal_Test_Signal_Generator();
 
     }
     // 左侧开关状态为[下],视觉模式
@@ -428,10 +454,11 @@ static void VTRemoteControlSet() {
     {
         aim_suggest_fire = 0;
         gimbal_cmd_send.yaw_speed = -0.0025f * DEGREE_2_RAD * (float)referee_VT_data->vt_ctrl[TEMP].vt.ch_left_x;
-        gimbal_cmd_send.pitch = 0.001f * DEGREE_2_RAD * (float)referee_VT_data->vt_ctrl[TEMP].vt.ch_left_y;
+        gimbal_cmd_send.pitch_speed = 0.001f * DEGREE_2_RAD * (float)referee_VT_data->vt_ctrl[TEMP].vt.ch_left_y;
 
-        if (gimbal_cmd_send.pitch >= PITCH_MAX_ANGLE) gimbal_cmd_send.pitch = PITCH_MAX_ANGLE;
-        if (gimbal_cmd_send.pitch <= PITCH_MIN_ANGLE) gimbal_cmd_send.pitch = PITCH_MIN_ANGLE;
+        if (!gimbal_fetch_data.pitch_motor_lost_flag) {
+            Pitch_Speed_Limit_Update();
+        }
     }
 
     gimbal_cmd_send.auto_aim_mode = 0;
@@ -550,9 +577,9 @@ static void VTMouseKeySet()
     chassis_cmd_send.vy = (float) key_d * 3.0f - (float) key_a * 3.0f;
 
     gimbal_cmd_send.yaw_speed = -(float) referee_VT_data->vt_ctrl[TEMP].mouse.x / 660 * 20.0f * DEGREE_2_RAD;
-    gimbal_cmd_send.pitch = (float) referee_VT_data->vt_ctrl[TEMP].mouse.y / 660 * 30.0f * DEGREE_2_RAD;
+    gimbal_cmd_send.pitch_speed = (float) referee_VT_data->vt_ctrl[TEMP].mouse.y / 660 * 30.0f * DEGREE_2_RAD;
     if (!gimbal_fetch_data.pitch_motor_lost_flag) {
-        Pitch_Dynamic_Limit_Update();
+        Pitch_Speed_Limit_Update();
     }
     chassis_cmd_send.auto_aim_mode = 0;
     gimbal_cmd_send.auto_aim_mode = 0;
