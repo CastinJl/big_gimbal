@@ -14,10 +14,10 @@
 #define YAW_B  0.046889312f  // N*m*s/rad
 #define YAW_TC 0.14761474f  // N*m
 #define YAW_KU 0.78064207f   // N*m/unit
-#define PITCH_J 0.003191f
-#define PITCH_B 0.129479f
-#define PITCH_G 0.04203f
-#define PITCH_KU 0.21299f
+#define PITCH_J 0.0238947f
+#define PITCH_B 0.102942f
+#define PITCH_G 0.135839f
+#define PITCH_KU 0.820625f
 #define FF_GAIN 1.0f  // 前馈增益，建议 0.85~0.95
 
 static attitude_t *gimbal_IMU_data; // 云台IMU数据
@@ -39,15 +39,15 @@ static Gimbal_GrayFF pitch_gray_ff;
 
 // --- 系统辨识配置宏 (pitch 力矩 chirp 扫频, 复用 yaw 的 chirp 生成器) ---
 #define SYS_ID_MODE_ON  0       // 保持 0: yaw chirp 关闭, chirp 函数由 pitch 复用
-#define SYS_ID_AMP      0.70f    // 力矩 chirp 振幅(指令单位), 4Hz 摆幅~3.1°
+#define SYS_ID_AMP      0.50f    // 力矩 chirp 振幅(指令单位), 4Hz 摆幅~3.1°
 #define SYS_ID_MIN_FREQ 4.0f    // 起始频率 4Hz
-#define SYS_ID_MAX_FREQ 22.0f   // 终止频率 15Hz
-#define SYS_ID_DURATION 35.0f   // 扫频时长 60s
+#define SYS_ID_MAX_FREQ 12.0f   // 终止频率 15Hz
+#define SYS_ID_DURATION 10.0f   // 扫频时长 60s
 
 // Pitch 角度系统辨识 (力矩 chirp 扫频, 复用 yaw 的 Gimbal_SysID_Generate_Chirp)
 #define PITCH_SYS_ID_MODE_ON   0
 #define PITCH_SYS_ID_GRAVITY_FF 1  // 1: 保留重力补偿，0: 纯力矩输入（需机械支撑）
-#define PITCH_SYS_ID_LIMIT_RAD   (10.0f * DEGREE_2_RAD)  // 10° 兜底 gate
+#define PITCH_SYS_ID_LIMIT_RAD   (15.0f * DEGREE_2_RAD)  // 10° 兜底 gate
 
 #if SYS_ID_MODE_ON && PITCH_SYS_ID_MODE_ON
 #error "Yaw and pitch system identification modes cannot be enabled together."
@@ -136,7 +136,7 @@ void GimbalInit() {
             },
             .controller_param_init_config = {
                     .angle_PID = {
-                            .Kp = 1.0f,//并行扭矩量纲起始值(原级联30);实车重标定
+                            .Kp = 8.0f,//并行扭矩量纲起始值(原级联30);实车重标定
                             .Ki = 0.0f,//0
                             .Kd = 0.0f,//0.0f,//0.005f
                             .DeadBand = 0.0f,
@@ -145,7 +145,7 @@ void GimbalInit() {
                             .MaxOut = 100,
                     },
                     .speed_PID = {
-                            .Kp = 0.0f,//并行扭矩量纲起始值(原级联2.1);阻尼,实车重标定
+                            .Kp = 1.0f,//并行扭矩量纲起始值(原级联2.1);阻尼,实车重标定
                             .Ki = 0.0f,
                             .Kd = 0.0f, //0.005f
                             .Improve = PID_Integral_Limit | PID_Derivative_On_Measurement | PID_DerivativeFilter,
@@ -191,7 +191,7 @@ void GimbalInit() {
             },
             .controller_param_init_config = {
                     .angle_PID = {
-                            .Kp = 1.0f,//并行扭矩量纲起始值(原级联50);实车重标定
+                            .Kp = 8.0f,//并行扭矩量纲起始值(原级联50);实车重标定
                             .Ki = 0.0f,
                             .Kd = 0.0f,
                             .Improve = PID_Trapezoid_Intergral | PID_Integral_Limit | PID_Derivative_On_Measurement,
@@ -267,7 +267,7 @@ void GimbalTask() {
     // 根据控制模式进行电机反馈切换和过渡,视觉模式在robot_cmd模块就已经设置好,gimbal只看yaw_ref和pitch_ref
     switch (gimbal_cmd_recv.gimbal_mode) {
         {
-        case GIMBAL_ZERO_FORCE:
+            case GIMBAL_ZERO_FORCE:
             DMMotorStop(yaw_motor);
             DMMotorStop(pitch_motor);
             yaw_motor->motor_controller.speed_PID.ITerm = 0.0f;
@@ -289,12 +289,12 @@ void GimbalTask() {
 
             break;
             // 使用陀螺仪的反馈,底盘根据yaw电机的offset跟随云台或视觉模式采用
-        case GIMBAL_GYRO_MODE: // 后续只保留此模式
+            case GIMBAL_GYRO_MODE: // 后续只保留此模式
             DMMotorEnable(yaw_motor);
             DMMotorEnable(pitch_motor);
 
             // 本地参考轨迹整形: 把 yaw_ref(主目标) 展开成平滑的 ref_pos; 视觉/无视觉共用平滑位置
-            
+
             if (gimbal_cmd_recv.auto_aim_mode == 1) {
                 // 视觉自瞄: 用视觉给的 yaw_v/yaw_acc(更好的外部预测)
                 yaw_gray_ff.ref_pos = gimbal_cmd_recv.yaw;
@@ -375,7 +375,7 @@ void GimbalTask() {
 
 
             // 云台自由模式,使用编码器反馈,底盘和云台分离,仅云台旋转,一般用于调整云台姿态(英雄吊射等)/能量机关,
-        case GIMBAL_FREE_MODE: // 后续删除,或加入云台追地盘的跟随模式(响应速度更快)
+            case GIMBAL_FREE_MODE: // 后续删除,或加入云台追地盘的跟随模式(响应速度更快)
             DMMotorStop(yaw_motor);
             DMMotorStop(pitch_motor);
             yaw_motor->motor_controller.speed_PID.ITerm = 0.0f;
@@ -397,22 +397,29 @@ void GimbalTask() {
             pitch_gray_ff.ref_acc = 0.0f;
 
             break;
-        default:
+            default:
             break;
         }
     }
     // 根据IMU姿态/pitch电机角度反馈计算出当前配重下的重力矩
 
     theta = gimbal_IMU_data->Pitch;
-    pitch_current = Torque_ff_Pitch(&pitch_gray_ff);
+    // if (theta>0.4) {//0.6
+    //     pitch_current = 0.1f;
+    //     //gravity_current = 0;
+    // }
+    // else {
+    //     pitch_current = 0.8383*arm_cos_f32(theta+1.0106)-0.2;
+    // }
+        pitch_current = Torque_ff_Pitch(&pitch_gray_ff);
 
 
-    // 设置反馈数据,主要是imu和yaw的ecd
-    gimbal_feedback_data.gimbal_imu_data = *gimbal_IMU_data;
-    gimbal_feedback_data.yaw_motor_single_round_angle = yaw_motor->measure.angle_single_round;
-    gimbal_feedback_data.yaw_motor_sum_round_angle= yaw_motor->measure.total_angle;
-    gimbal_feedback_data.pitch_motor_single_round_angle= pitch_motor->measure.angle_single_round;
-    gimbal_feedback_data.pitch_motor_lost_flag = pitch_motor->lost_flag;
-    // 推送消息
-    PubPushMessage(gimbal_pub, (void *) &gimbal_feedback_data);
+        // 设置反馈数据,主要是imu和yaw的ecd
+        gimbal_feedback_data.gimbal_imu_data = *gimbal_IMU_data;
+        gimbal_feedback_data.yaw_motor_single_round_angle = yaw_motor->measure.angle_single_round;
+        gimbal_feedback_data.yaw_motor_sum_round_angle= yaw_motor->measure.total_angle;
+        gimbal_feedback_data.pitch_motor_single_round_angle= pitch_motor->measure.angle_single_round;
+        gimbal_feedback_data.pitch_motor_lost_flag = pitch_motor->lost_flag;
+        // 推送消息
+        PubPushMessage(gimbal_pub, (void *) &gimbal_feedback_data);
 }

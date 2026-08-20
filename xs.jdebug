@@ -22,17 +22,18 @@ void OnProjectLoad (void) {
   //
   // Dialog-generated settings
   //
-  Project.AddPathSubstitute ("D:/zhandui/cqdm/xiaojing", "$(ProjectDir)");
-  Project.AddPathSubstitute ("d:/zhandui/cqdm/xiaojing", "$(ProjectDir)");
   Project.SetDevice ("STM32F407IG");
-  Project.SetHostIF ("USB", "17935099");
+  Project.SetHostIF ("USB", "602710330");
   Project.SetTargetIF ("SWD");
   Project.SetTIFSpeed ("4 MHz");
+  Project.AddPathSubstitute ("D:/zhandui/cqdm/xiaojing", "$(ProjectDir)");
+  Project.AddPathSubstitute ("d:/zhandui/cqdm/xiaojing", "$(ProjectDir)");
   Project.AddSvdFile ("$(InstallDir)/Config/CPU/Cortex-M4F.svd");
   Project.AddSvdFile ("D:/Ozone/Ozone/Config/Peripherals/STM32F407IG.svd");
   //
   // User settings
   //
+  Edit.SysVar (VAR_HSS_SPEED, FREQ_2_KHZ);
   File.Open ("$(ProjectDir)/cmake-build-debug/basic_framework.elf");
 }
 

@@ -1,34 +1,51 @@
 
 
-GraphedExpression="gravity_current", Color=#e56a6f
-GraphedExpression="sys_id_target_speed", Color=#35792b
+GraphedExpression="sys_id_target_speed", Color=#e56a6f
+GraphedExpression="pitch_current", Color=#35792b
 GraphedExpression="(gimbal_IMU_data)->Gyro[0]", Color=#769dda
 GraphedExpression="(gimbal_IMU_data)->Pitch", Color=#b14f0d
-OpenDocument="pitch4.csv", FilePath="C:/Users/a1511/Desktop/csv/pitch4.csv", Line=0
-OpenDocument="pitch3.csv", FilePath="C:/Users/a1511/Desktop/csv/pitch3.csv", Line=0
-OpenDocument="SEGGER_RTT_printf.c", FilePath="C:/Users/a1511/Documents/Embedded/Infantry_SteerWheel_26_Gimbal_C_Board_Framework/Middlewares/Third_Party/SEGGER/RTT/SEGGER_RTT_printf.c", Line=107
-OpenDocument="pitch2.csv", FilePath="C:/Users/a1511/Desktop/csv/pitch2.csv", Line=0
-OpenDocument="tasks.c", FilePath="C:/Users/a1511/Documents/Embedded/Infantry_SteerWheel_26_Gimbal_C_Board_Framework/Middlewares/Third_Party/FreeRTOS/Source/tasks.c", Line=3424
-OpenDocument="pitch1.csv", FilePath="C:/Users/a1511/Desktop/csv/pitch1.csv", Line=0
-OpenDocument="stm32f4xx_hal_spi.c", FilePath="C:/Users/a1511/Documents/Embedded/Infantry_SteerWheel_26_Gimbal_C_Board_Framework/Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_spi.c", Line=1257
-OpenDocument="main.c", FilePath="C:/Users/a1511/Documents/Embedded/Infantry_SteerWheel_26_Gimbal_C_Board_Framework/Src/main.c", Line=70
+OpenDocument="pitch.csv", FilePath="C:/Users/a1511/Desktop/csv/pitch.csv", Line=0
+OpenDocument="main.c", FilePath="D:/RM/Embedded/Infantry_SteerWheel_26_Gimbal_C_Board_Framework/Src/main.c", Line=71
+OpenDocument="4-15-0.6-15s.csv", FilePath="D:/RM/Embedded/Infantry_SteerWheel_26_Gimbal_C_Board_Framework/4-15-0.6-15s.csv", Line=0
+OpenDocument="3-12-15-0.5.csv", FilePath="D:/RM/Embedded/Infantry_SteerWheel_26_Gimbal_C_Board_Framework/3-12-15-0.5.csv", Line=0
+OpenDocument="PITCH4-15hz0.5-11.csv", FilePath="C:/Users/a1511/Desktop/csv/PITCH4-15hz0.5-11.csv", Line=0
+OpenDocument="tasks.c", FilePath="D:/RM/Embedded/Infantry_SteerWheel_26_Gimbal_C_Board_Framework/Middlewares/Third_Party/FreeRTOS/Source/tasks.c", Line=3642
+OpenDocument="robot_def.h", FilePath="D:/RM/Embedded/Infantry_SteerWheel_26_Gimbal_C_Board_Framework/application/robot_def.h", Line=212
+OpenDocument="stm32f4xx_hal_spi.c", FilePath="D:/RM/Embedded/Infantry_SteerWheel_26_Gimbal_C_Board_Framework/Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_spi.c", Line=1126
+OpenDocument="PITCH25HZ0.7.csv", FilePath="C:/Users/a1511/Desktop/csv/PITCH25HZ0.7.csv", Line=0
+OpenDocument="YAW15HZ2.0.csv", FilePath="C:/Users/a1511/Desktop/csv/YAW15HZ2.0.csv", Line=0
+OpenDocument="yaw1.0111.csv", FilePath="C:/Users/a1511/Desktop/csv/yaw1.0111.csv", Line=0
+OpenDocument="PITCH22HZ222.csv", FilePath="C:/Users/a1511/Desktop/csv/PITCH22HZ222.csv", Line=0
+OpenDocument="yaw2.0222.csv", FilePath="C:/Users/a1511/Desktop/csv/yaw2.0222.csv", Line=0
+OpenDocument="yaw2.0111.csv", FilePath="C:/Users/a1511/Desktop/csv/yaw2.0111.csv", Line=0
+OpenDocument="pitch111.csv", FilePath="C:/Users/a1511/Desktop/csv/pitch111.csv", Line=0
+OpenDocument="pitch222.csv", FilePath="C:/Users/a1511/Desktop/csv/pitch222.csv", Line=0
+OpenDocument="yaw1.0222.csv", FilePath="C:/Users/a1511/Desktop/csv/yaw1.0222.csv", Line=0
 OpenToolbar="Debug", Floating=0, x=0, y=0
-OpenWindow="Disassembly", DockArea=RIGHT, x=0, y=0, w=591, h=177, FilterBarShown=0, TotalValueBarShown=0, ToolBarShown=0
-OpenWindow="Watched Data 1", DockArea=RIGHT, x=0, y=1, w=591, h=353, FilterBarShown=0, TotalValueBarShown=0, ToolBarShown=0
-OpenWindow="Terminal", DockArea=BOTTOM, x=0, y=0, w=311, h=393, FilterBarShown=0, TotalValueBarShown=0, ToolBarShown=0
+OpenWindow="Disassembly", DockArea=RIGHT, x=0, y=0, w=591, h=211, FilterBarShown=0, TotalValueBarShown=0, ToolBarShown=0
+OpenWindow="Watched Data 1", DockArea=RIGHT, x=0, y=1, w=591, h=319, FilterBarShown=0, TotalValueBarShown=0, ToolBarShown=0
+OpenWindow="Terminal", DockArea=BOTTOM, x=0, y=0, w=365, h=393, FilterBarShown=0, TotalValueBarShown=0, ToolBarShown=0
 OpenWindow="Data Sampling", DockArea=BOTTOM, x=2, y=0, w=536, h=393, FilterBarShown=0, TotalValueBarShown=0, ToolBarShown=0, VisibleTab=1, UniformSampleSpacing=0
-OpenWindow="Timeline", DockArea=BOTTOM, x=1, y=0, w=1071, h=393, FilterBarShown=0, TotalValueBarShown=0, ToolBarShown=1, DataPaneShown=1, PowerPaneShown=0, CodePaneShown=0, PinCursor="Cursor Movable", TimePerDiv="20 s", TimeStampFormat="Time", DataGraphDrawAsPoints=0, DataGraphLegendShown=1, DataGraphUniformSampleSpacing=0, DataGraphLegendPosition="0;0", DataGraphShowNamesAtCursor=0, PowerGraphDrawAsPoints=0, PowerGraphLegendShown=0, PowerGraphAvgFilterTime=Off, PowerGraphAvgFilterLen=Off, PowerGraphUniformSampleSpacing=0, PowerGraphLegendPosition="390;0", CodeGraphLegendShown=0, CodeGraphLegendPosition="404;0"
+OpenWindow="Timeline", DockArea=BOTTOM, x=1, y=0, w=1017, h=393, FilterBarShown=0, TotalValueBarShown=0, ToolBarShown=1, DataPaneShown=1, PowerPaneShown=0, CodePaneShown=0, PinCursor="Cursor Movable", TimePerDiv="10 s", TimeStampFormat="Time", DataGraphDrawAsPoints=0, DataGraphLegendShown=1, DataGraphUniformSampleSpacing=0, DataGraphLegendPosition="0;0", DataGraphShowNamesAtCursor=1, PowerGraphDrawAsPoints=0, PowerGraphLegendShown=0, PowerGraphAvgFilterTime=Off, PowerGraphAvgFilterLen=Off, PowerGraphUniformSampleSpacing=0, PowerGraphLegendPosition="821;0", CodeGraphLegendShown=0, CodeGraphLegendPosition="835;0"
 OpenWindow="Console", DockArea=LEFT, x=0, y=0, w=360, h=531, FilterBarShown=0, TotalValueBarShown=0, ToolBarShown=0
 SmartViewPlugin="", Page="", Toolbar="Hidden", Window="SmartView 1"
-TableHeader="Data Sampling Setup", SortCol="Type", SortOrder="DESCENDING", VisibleCols=["Expression";"Type";"Value";"Min";"Max";"Average";"# Changes";"Min. Change";"Max. Change"], ColWidths=[196;100;134;118;110;126;100;134;118]
-TableHeader="Data Sampling Table", SortCol="None", SortOrder="ASCENDING", VisibleCols=["Index";"Time";" gravity_current";" sys_id_target_speed";" (gimbal_IMU_data)->Gyro[0]";" (gimbal_IMU_data)->Pitch"], ColWidths=[100;100;100;100;100;100]
+TableHeader="Data Sampling Setup", SortCol="Type", SortOrder="DESCENDING", VisibleCols=["Expression";"Type";"Value";"Min";"Max";"Average";"# Changes";"Min. Change";"Max. Change"], ColWidths=[196;100;118;110;102;126;100;126;126]
+TableHeader="Data Sampling Table", SortCol="None", SortOrder="ASCENDING", VisibleCols=["Index";"Time";" sys_id_target_speed";" pitch_current";" (gimbal_IMU_data)->Gyro[0]";" (gimbal_IMU_data)->Pitch"], ColWidths=[100;100;100;100;100;100]
 TableHeader="Power Sampling", SortCol="None", SortOrder="ASCENDING", VisibleCols=["Index";"Time";"Ch 0"], ColWidths=[100;100;100]
-TableHeader="Watched Data 1", SortCol="Expression", SortOrder="ASCENDING", VisibleCols=["Expression";"Value";"Location";"Refresh"], ColWidths=[212;105;100;174]
+TableHeader="Watched Data 1", SortCol="Expression", SortOrder="ASCENDING", VisibleCols=["Expression";"Value";"Location";"Refresh"], ColWidths=[212;105;100;153]
 TableHeader="RegisterSelectionDialog", SortCol="None", SortOrder="ASCENDING", VisibleCols=[], ColWidths=[]
 TableHeader="TargetExceptionDialog", SortCol="Name", SortOrder="ASCENDING", VisibleCols=["Name";"Value";"Address";"Description"], ColWidths=[200;100;100;372]
 WatchedExpression="yaw_motor", RefreshRate=2, Window=Watched Data 1
 WatchedExpression="pitch_motor", RefreshRate=2, Window=Watched Data 1
 WatchedExpression="rc_data", RefreshRate=2, Window=Watched Data 1
-WatchedExpression="gravity_current", RefreshRate=2, Window=Watched Data 1
 WatchedExpression="gimbal_IMU_data", RefreshRate=2, Window=Watched Data 1
+WatchedExpression="gimba_IMU_data", RefreshRate=2, Window=Watched Data 1
+WatchedExpression="recv_data", RefreshRate=2, Window=Watched Data 1
+WatchedExpression="send_data", RefreshRate=2, Window=Watched Data 1
+WatchedExpression="vision_recv_data", RefreshRate=2, Window=Watched Data 1
+WatchedExpression="pitch_traj.vel_ref", RefreshRate=2, Window=Watched Data 1
+WatchedExpression="pitch_traj.pos_f", RefreshRate=2, Window=Watched Data 1
+WatchedExpression="gimbal_cmd_recv", RefreshRate=2, Window=Watched Data 1
+WatchedExpression="yaw_traj.pos_f", RefreshRate=2, Window=Watched Data 1
 WatchedExpression="sys_id_target_speed", RefreshRate=2, Window=Watched Data 1
+WatchedExpression="pitch_current", RefreshRate=2, Window=Watched Data 1

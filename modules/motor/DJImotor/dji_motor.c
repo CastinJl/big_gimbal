@@ -161,7 +161,7 @@ static void DecodeDJIMotor(CANInstance *_instance) {
     measure->last_ecd = measure->ecd;
     measure->ecd = ((uint16_t) rxbuff[0]) << 8 | rxbuff[1];
     measure->angle_single_round = ECD_ANGLE_COEF_DJI * (float) measure->ecd;
-    measure->speed_aps = (1.0f - SPEED_SMOOTH_COEF) * measure->speed_aps +
+    measure->speed_rad_per_second = (1.0f - SPEED_SMOOTH_COEF) * measure->speed_rad_per_second +
                          RPM_2_ANGLE_PER_SEC * DEGREE_2_RAD * SPEED_SMOOTH_COEF *
                          (float) ((int16_t) (rxbuff[2] << 8 | rxbuff[3]));
     measure->real_current = (1.0f - CURRENT_SMOOTH_COEF) * measure->real_current +
@@ -265,7 +265,7 @@ static const float motor_power_K[3] = {1.6301e-6f,5.7501e-7f,2.5863e-7f};
 static float EstimatePower(DJIMotorInstance* chassis_motor,float output)
 {
     float I_cmd = chassis_motor->motor_controller.current_PID.Output;
-    float w = chassis_motor->measure.speed_aps * 60.0f / PI2; // rad/s to rpm
+    float w = chassis_motor->measure.speed_rad_per_second * 60.0f / PI2; // rad/s to rpm
 
     float power = motor_power_K[0] * I_cmd * w + motor_power_K[1]*w*w  + motor_power_K[2]*I_cmd*I_cmd;
     return power;
@@ -351,9 +351,9 @@ void DJIMotorControl() {
             else // MOTOR_FEED
             {
                 if(motor_setting->feedback_reverse_flag == FEEDBACK_DIRECTION_REVERSE)
-                    pid_measure = -measure->speed_aps;
+                    pid_measure = -measure->speed_rad_per_second;
                 else
-                    pid_measure = measure->speed_aps;
+                    pid_measure = measure->speed_rad_per_second;
             }
 
             speed_pid_out = PIDCalculate(&motor_controller->speed_PID, pid_measure, speed_pid_ref);
@@ -375,7 +375,7 @@ void DJIMotorControl() {
         if(motor_setting->power_limit_flag == POWER_LIMIT_ON)
         {
             float I_cmd = control_out;
-            float w = measure->speed_aps * 60.0f / PI2; // rad/s to rpm
+            float w = measure->speed_rad_per_second * 60.0f / PI2; // rad/s to rpm
             motor_controller->motor_power_predict = motor_power_K[0] * I_cmd * w + motor_power_K[1]*w*w  + motor_power_K[2]*I_cmd*I_cmd;
 
             //这里K应该使用所有底盘电机一起计算 (在底盘任务中)

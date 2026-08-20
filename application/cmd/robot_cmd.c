@@ -352,7 +352,7 @@ static void RemoteControlSet() {
                 Pitch_Speed_Limit_Update();
             }
         }
-        // Gimbal_Test_Signal_Generator();
+         //Gimbal_Test_Signal_Generator();
 
     }
     // 左侧开关状态为[下],视觉模式

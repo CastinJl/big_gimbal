@@ -38,8 +38,8 @@ void ShootInit()
     },
     .controller_param_init_config = {
             .speed_PID = {
-                .Kp = 1.5f * RAD_2_DEGREE, // 原1.5按度/s调, 现rad/s重标×57.3
-                .Ki = 0.2f * RAD_2_DEGREE,
+                .Kp = 1.5f , // 原1.5按度/s调, 现rad/s
+                .Ki = 0.2f ,
                 .Kd = 0,
                 .Improve = PID_Integral_Limit,
                 .IntegralLimit = 10000,
@@ -80,14 +80,14 @@ void ShootInit()
             .controller_param_init_config = {
                     .angle_PID = {
                             // 如果启用位置环来控制发弹,需要较大的I值保证输出力矩的线性度否则出现接近拨出的力矩大幅下降
-                            .Kp = 15.0f * RAD_2_DEGREE, // 原15按度调, 现rad重标×57.3
+                            .Kp = 15.0f , // 原15按度调, 现rad
                             .Ki = 0,
                             .Kd = 0,
                             .MaxOut = 10000,
                     },
                     .speed_PID = {
-                            .Kp = 3.5f * RAD_2_DEGREE, // 原3.5按度/s调, 现rad/s重标×57.3
-                            .Ki = 1.0f * RAD_2_DEGREE,
+                            .Kp = 3.5f, // 原3.5按度/s调, 现rad/s
+                            .Ki = 1.0f,
                             .Kd = 0,
                             .Improve = PID_Integral_Limit,
                             .IntegralLimit = 5000,
@@ -130,7 +130,7 @@ void stalled_detect()
         return;
     if(shoot_cmd_recv.loader_mode == LOAD_BURSTFIRE)
     {
-        if(fabsf(loader->measure.speed_aps)<=500.0f * DEGREE_2_RAD) // speed_aps 已 rad/s, 阈值500°=8.73rad/s
+        if(fabsf(loader->measure.speed_rad_per_second)<=500.0f * DEGREE_2_RAD) // speed_aps 已 rad/s, 阈值500°=8.73rad/s
         {
             stalled_cnt ++;
         }
@@ -157,7 +157,7 @@ void ShootTask()
     heat_control.heat_limit = shoot_cmd_recv.heat_limit;
     heat_control.cooling_rate = shoot_cmd_recv.heat_cool;
     current_loader = loader->measure.real_current;
-    speed_loader = loader->measure.speed_aps;
+    speed_loader = loader->measure.speed_rad_per_second;
 
     // 对shoot mode等于SHOOT_STOP的情况特殊处理,直接停止所有电机(紧急停止)
     if (shoot_cmd_recv.shoot_mode == SHOOT_OFF)
@@ -290,8 +290,8 @@ void ShootTask()
     // 确定是否开启摩擦轮,后续可能修改为键鼠模式下始终开启摩擦轮(上场时建议一直开启)
     if (shoot_cmd_recv.friction_mode == FRICTION_ON)
     {
-        DJIMotorSetRef(friction_l, 35000 * DEGREE_2_RAD); // 35000°=611rad/s, speed_aps已rad/s
-        DJIMotorSetRef(friction_r, 35000 * DEGREE_2_RAD);
+        DJIMotorSetRef(friction_l, 670); //    rad/s
+        DJIMotorSetRef(friction_r, 670);
     }
     else // 关闭摩擦轮
     {

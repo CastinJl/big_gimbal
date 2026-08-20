@@ -5,10 +5,10 @@
 #define YAW_PROFILE_MIN_DT                0.0001f
 #define YAW_PROFILE_MAX_DT                0.0100f
 
-#define YAW_VEL_MAX 30.0f
-#define YAW_ACC_MAX 150.0f   //最大扭矩/J   DM4310额定扭矩3N*m
-#define PITCH_VEL_MAX 30.0f
-#define PITCH_ACC_MAX 150.0f
+#define YAW_VEL_MAX 5.0f
+#define YAW_ACC_MAX 50.0f   //最大扭矩/J   DM4310额定扭矩3N*m
+#define PITCH_VEL_MAX 5.0f
+#define PITCH_ACC_MAX 50.0f
 
 typedef struct {
     // --- 轨迹规划状态（平滑后的参考值） ---
