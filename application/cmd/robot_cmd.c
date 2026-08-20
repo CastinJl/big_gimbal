@@ -344,10 +344,7 @@ static void RemoteControlSet() {
             gimbal_cmd_send.yaw_speed = -0.25f * DEGREE_2_RAD * (float) rc_data[TEMP].rc.rocker_l_;
             //gimbal_cmd_send.pitch += 0.001f * (float) rc_data[TEMP].rc.rocker_l1;
             gimbal_cmd_send.pitch_speed = 0.25f * DEGREE_2_RAD * (float) rc_data[TEMP].rc.rocker_l1;
-            gimbal_cmd_send.vision_yaw_speed_ff = -0.5f * DEGREE_2_RAD * (float) rc_data[TEMP].rc.rocker_l_;
-            gimbal_cmd_send.vision_pitch_speed_ff = 0.5f * DEGREE_2_RAD * (float) rc_data[TEMP].rc.rocker_l1;
-            gimbal_cmd_send.vision_yaw_acc_ff = 0.0f;
-            gimbal_cmd_send.vision_pitch_acc_ff = 0.0f;
+
             if (!gimbal_fetch_data.pitch_motor_lost_flag) {
                 Pitch_Speed_Limit_Update();
             }
@@ -980,8 +977,7 @@ void RobotCMDTask() {
     shoot_cmd_send.heat_limit = chassis_fetch_data.heat_limit;
     //shoot_cmd_send.heat_cool = chassis_fetch_data.heat_colo;
     gimbal_cmd_send.real_wz = chassis_fetch_data.real_wz;
-    // gimbal_cmd_send.vision_yaw_speed_ff = vision_recv_data->yaw_v;
-    // gimbal_cmd_send.vision_pitch_speed_ff = vision_recv_data->pitch_v;
+
     // shoot_cmd_send.heat_limit = referee_data->GameRobotState.shooter_barrel_heat_limit;
     shoot_cmd_send.heat_cool = chassis_fetch_data.cooling_speed;
     shoot_cmd_send.robot_level = chassis_fetch_data.robot_level;

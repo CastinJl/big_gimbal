@@ -1,15 +1,23 @@
 
 
-GraphedExpression="sys_id_target_speed", Color=#e56a6f
-GraphedExpression="pitch_current", Color=#35792b
-GraphedExpression="(gimbal_IMU_data)->Gyro[0]", Color=#769dda
-GraphedExpression="(gimbal_IMU_data)->Pitch", Color=#b14f0d
+GraphedExpression="pitch_current", Color=#769dda, Show=0
+GraphedExpression="yaw_current", Color=#b14f0d, Show=0
+GraphedExpression="(vision_recv_data)->pitch_v", Color=#769dda, Show=0
+GraphedExpression="(vision_recv_data)->yaw_v", Color=#b14f0d, Show=0
+GraphedExpression="(vision_recv_data)->yaw", Color=#b3c38e, Show=0
+GraphedExpression="(vision_recv_data)->pitch", Color=#ab7b05
+GraphedExpression="(gimbal_IMU_data)->Pitch", Color=#7fd3b7
+GraphedExpression="(gimbal_IMU_data)->Yaw", Color=#50328f, Show=0
+GraphedExpression="(gimbal_IMU_data)->Gyro[0]", Color=#c587a5, Show=0
+GraphedExpression="(gimbal_IMU_data)->Gyro[2]", Color=#999401, Show=0
+OpenDocument="tasks.c", FilePath="D:/RM/Embedded/Infantry_SteerWheel_26_Gimbal_C_Board_Framework/Middlewares/Third_Party/FreeRTOS/Source/tasks.c", Line=3424
+OpenDocument="stm32f4xx_hal_tim.c", FilePath="D:/RM/Embedded/Infantry_SteerWheel_26_Gimbal_C_Board_Framework/Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_tim.c", Line=3843
 OpenDocument="pitch.csv", FilePath="C:/Users/a1511/Desktop/csv/pitch.csv", Line=0
 OpenDocument="main.c", FilePath="D:/RM/Embedded/Infantry_SteerWheel_26_Gimbal_C_Board_Framework/Src/main.c", Line=71
 OpenDocument="4-15-0.6-15s.csv", FilePath="D:/RM/Embedded/Infantry_SteerWheel_26_Gimbal_C_Board_Framework/4-15-0.6-15s.csv", Line=0
 OpenDocument="3-12-15-0.5.csv", FilePath="D:/RM/Embedded/Infantry_SteerWheel_26_Gimbal_C_Board_Framework/3-12-15-0.5.csv", Line=0
 OpenDocument="PITCH4-15hz0.5-11.csv", FilePath="C:/Users/a1511/Desktop/csv/PITCH4-15hz0.5-11.csv", Line=0
-OpenDocument="tasks.c", FilePath="D:/RM/Embedded/Infantry_SteerWheel_26_Gimbal_C_Board_Framework/Middlewares/Third_Party/FreeRTOS/Source/tasks.c", Line=3642
+OpenDocument="bsp_dwt.c", FilePath="D:/RM/Embedded/Infantry_SteerWheel_26_Gimbal_C_Board_Framework/bsp/dwt/bsp_dwt.c", Line=104
 OpenDocument="robot_def.h", FilePath="D:/RM/Embedded/Infantry_SteerWheel_26_Gimbal_C_Board_Framework/application/robot_def.h", Line=212
 OpenDocument="stm32f4xx_hal_spi.c", FilePath="D:/RM/Embedded/Infantry_SteerWheel_26_Gimbal_C_Board_Framework/Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_spi.c", Line=1126
 OpenDocument="PITCH25HZ0.7.csv", FilePath="C:/Users/a1511/Desktop/csv/PITCH25HZ0.7.csv", Line=0
@@ -22,15 +30,15 @@ OpenDocument="pitch111.csv", FilePath="C:/Users/a1511/Desktop/csv/pitch111.csv",
 OpenDocument="pitch222.csv", FilePath="C:/Users/a1511/Desktop/csv/pitch222.csv", Line=0
 OpenDocument="yaw1.0222.csv", FilePath="C:/Users/a1511/Desktop/csv/yaw1.0222.csv", Line=0
 OpenToolbar="Debug", Floating=0, x=0, y=0
-OpenWindow="Disassembly", DockArea=RIGHT, x=0, y=0, w=591, h=211, FilterBarShown=0, TotalValueBarShown=0, ToolBarShown=0
-OpenWindow="Watched Data 1", DockArea=RIGHT, x=0, y=1, w=591, h=319, FilterBarShown=0, TotalValueBarShown=0, ToolBarShown=0
+OpenWindow="Disassembly", DockArea=RIGHT, x=0, y=0, w=591, h=214, FilterBarShown=0, TotalValueBarShown=0, ToolBarShown=0
+OpenWindow="Watched Data 1", DockArea=RIGHT, x=0, y=1, w=591, h=316, FilterBarShown=0, TotalValueBarShown=0, ToolBarShown=0
 OpenWindow="Terminal", DockArea=BOTTOM, x=0, y=0, w=365, h=393, FilterBarShown=0, TotalValueBarShown=0, ToolBarShown=0
-OpenWindow="Data Sampling", DockArea=BOTTOM, x=2, y=0, w=536, h=393, FilterBarShown=0, TotalValueBarShown=0, ToolBarShown=0, VisibleTab=1, UniformSampleSpacing=0
-OpenWindow="Timeline", DockArea=BOTTOM, x=1, y=0, w=1017, h=393, FilterBarShown=0, TotalValueBarShown=0, ToolBarShown=1, DataPaneShown=1, PowerPaneShown=0, CodePaneShown=0, PinCursor="Cursor Movable", TimePerDiv="10 s", TimeStampFormat="Time", DataGraphDrawAsPoints=0, DataGraphLegendShown=1, DataGraphUniformSampleSpacing=0, DataGraphLegendPosition="0;0", DataGraphShowNamesAtCursor=1, PowerGraphDrawAsPoints=0, PowerGraphLegendShown=0, PowerGraphAvgFilterTime=Off, PowerGraphAvgFilterLen=Off, PowerGraphUniformSampleSpacing=0, PowerGraphLegendPosition="821;0", CodeGraphLegendShown=0, CodeGraphLegendPosition="835;0"
+OpenWindow="Data Sampling", DockArea=BOTTOM, x=2, y=0, w=536, h=393, FilterBarShown=0, TotalValueBarShown=0, ToolBarShown=0, VisibleTab=0, UniformSampleSpacing=0
+OpenWindow="Timeline", DockArea=BOTTOM, x=1, y=0, w=1017, h=393, FilterBarShown=0, TotalValueBarShown=0, ToolBarShown=1, DataPaneShown=1, PowerPaneShown=0, CodePaneShown=0, PinCursor="Cursor Movable", TimePerDiv="5 s", TimeStampFormat="Time", DataGraphDrawAsPoints=0, DataGraphLegendShown=1, DataGraphUniformSampleSpacing=0, DataGraphLegendPosition="98;0", DataGraphShowNamesAtCursor=1, PowerGraphDrawAsPoints=0, PowerGraphLegendShown=0, PowerGraphAvgFilterTime=Off, PowerGraphAvgFilterLen=Off, PowerGraphUniformSampleSpacing=0, PowerGraphLegendPosition="821;0", CodeGraphLegendShown=0, CodeGraphLegendPosition="835;0"
 OpenWindow="Console", DockArea=LEFT, x=0, y=0, w=360, h=531, FilterBarShown=0, TotalValueBarShown=0, ToolBarShown=0
 SmartViewPlugin="", Page="", Toolbar="Hidden", Window="SmartView 1"
-TableHeader="Data Sampling Setup", SortCol="Type", SortOrder="DESCENDING", VisibleCols=["Expression";"Type";"Value";"Min";"Max";"Average";"# Changes";"Min. Change";"Max. Change"], ColWidths=[196;100;118;110;102;126;100;126;126]
-TableHeader="Data Sampling Table", SortCol="None", SortOrder="ASCENDING", VisibleCols=["Index";"Time";" sys_id_target_speed";" pitch_current";" (gimbal_IMU_data)->Gyro[0]";" (gimbal_IMU_data)->Pitch"], ColWidths=[100;100;100;100;100;100]
+TableHeader="Data Sampling Table", SortCol="None", SortOrder="ASCENDING", VisibleCols=["Index";"Time";" pitch_current";" yaw_current";" (vision_recv_data)->pitch_v";" (vision_recv_data)->yaw_v";" (vision_recv_data)->yaw";" (vision_recv_data)->pitch";" (gimbal_IMU_data)->Pitch";" (gimbal_IMU_data)->Yaw";" (gimbal_IMU_data)->Gyro[0]";" (gimbal_IMU_data)->Gyro[2]"], ColWidths=[100;100;100;100;100;100;100;100;100;100;100;100]
+TableHeader="Data Sampling Setup", SortCol="Type", SortOrder="DESCENDING", VisibleCols=["Expression";"Type";"Value";"Min";"Max";"Average";"# Changes";"Min. Change";"Max. Change"], ColWidths=[147;100;126;118;110;126;100;126;110]
 TableHeader="Power Sampling", SortCol="None", SortOrder="ASCENDING", VisibleCols=["Index";"Time";"Ch 0"], ColWidths=[100;100;100]
 TableHeader="Watched Data 1", SortCol="Expression", SortOrder="ASCENDING", VisibleCols=["Expression";"Value";"Location";"Refresh"], ColWidths=[212;105;100;153]
 TableHeader="RegisterSelectionDialog", SortCol="None", SortOrder="ASCENDING", VisibleCols=[], ColWidths=[]
@@ -49,3 +57,4 @@ WatchedExpression="gimbal_cmd_recv", RefreshRate=2, Window=Watched Data 1
 WatchedExpression="yaw_traj.pos_f", RefreshRate=2, Window=Watched Data 1
 WatchedExpression="sys_id_target_speed", RefreshRate=2, Window=Watched Data 1
 WatchedExpression="pitch_current", RefreshRate=2, Window=Watched Data 1
+WatchedExpression="yaw_current", RefreshRate=2, Window=Watched Data 1
