@@ -14,10 +14,11 @@
 #define YAW_B  0.046889312f  // N*m*s/rad
 #define YAW_TC 0.14761474f  // N*m
 #define YAW_KU 0.78064207f   // N*m/unit
-#define PITCH_J 0.0238947f
-#define PITCH_B 0.102942f
-#define PITCH_G 0.135839f
-#define PITCH_KU 0.820625f
+#define PITCH_J 0.003f
+#define PITCH_B 0.019479f
+#define PITCH_G 0.08003f
+#define PITCH_KU 0.21299f
+#define PITCH_TC 0.0876f
 #define FF_GAIN 1.0f  // 前馈增益，建议 0.85~0.95
 
 static attitude_t *gimbal_IMU_data; // 云台IMU数据
@@ -118,7 +119,7 @@ static float Torque_ff_Yaw(Gimbal_GrayFF *ff)
 static float Torque_ff_Pitch(Gimbal_GrayFF *ff)
 {
     // ref_pos/ref_vel/ref_acc 由GimbalTask通过本地轨迹生成 + 视觉覆盖填好
-    ff->torque_ff = PITCH_J * ff->ref_acc + PITCH_B * ff->ref_vel + PITCH_G * arm_cos_f32(theta);
+    ff->torque_ff = PITCH_J * ff->ref_acc + PITCH_B * ff->ref_vel + PITCH_G * arm_cos_f32(theta) + PITCH_TC * tanhf(Friction_Smooth * ff->ref_vel);
 
     ff->out_current = ff->torque_ff/PITCH_KU;
     return ff->out_current;
@@ -136,16 +137,17 @@ void GimbalInit() {
             },
             .controller_param_init_config = {
                     .angle_PID = {
-                            .Kp = 8.0f,//并行扭矩量纲起始值(原级联30);实车重标定
+                            .Kp = 30.0f,//并行扭矩量纲起始值(原级联30);实车重标定
                             .Ki = 0.0f,//0
                             .Kd = 0.0f,//0.0f,//0.005f
                             .DeadBand = 0.0f,
                             .Improve = PID_Trapezoid_Intergral | PID_Integral_Limit | PID_Derivative_On_Measurement,
-                            .IntegralLimit = 500,
+                            .IntegralLimit = 50,
                             .MaxOut = 100,
+
                     },
                     .speed_PID = {
-                            .Kp = 1.0f,//并行扭矩量纲起始值(原级联2.1);阻尼,实车重标定
+                            .Kp = 1.60f,//并行扭矩量纲起始值(原级联2.1);阻尼,实车重标定
                             .Ki = 0.0f,
                             .Kd = 0.0f, //0.005f
                             .Improve = PID_Integral_Limit | PID_Derivative_On_Measurement | PID_DerivativeFilter,
@@ -191,7 +193,7 @@ void GimbalInit() {
             },
             .controller_param_init_config = {
                     .angle_PID = {
-                            .Kp = 8.0f,//并行扭矩量纲起始值(原级联50);实车重标定
+                            .Kp = 15.0f,//并行扭矩量纲起始值(原级联50);实车重标定
                             .Ki = 0.0f,
                             .Kd = 0.0f,
                             .Improve = PID_Trapezoid_Intergral | PID_Integral_Limit | PID_Derivative_On_Measurement,
@@ -200,7 +202,7 @@ void GimbalInit() {
 
                     },
                     .speed_PID = {
-                            .Kp = 1.0f,//并行扭矩量纲起始值(原级联2);阻尼,实车重标定
+                            .Kp = 1.20f,//并行扭矩量纲起始值(原级联2);阻尼,实车重标定
                             .Ki = 0.0f,
                             .Kd = 0.0f,
                             .Improve = PID_Integral_Limit | PID_Derivative_On_Measurement,
