@@ -11,7 +11,7 @@
 
 #define Friction_Smooth 100.0f
 #define YAW_J  0.02552f    // kg*m^2
-#define YAW_B  0.046889312f  // N*m*s/rad
+#define YAW_B  0.044349312f  // N*m*s/rad
 #define YAW_TC 0.14761474f  // N*m
 #define YAW_KU 0.78064207f   // N*m/unit
 #define PITCH_J 0.003f
