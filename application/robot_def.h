@@ -25,7 +25,7 @@
 // #define VISION_USE_UART // 使用串口发送视觉数据
 /* 机器人重要参数定义,注意根据不同机器人进行修改,浮点数需要以.0或f结尾,无符号以u结尾 */
 // 云台参数
-#define YAW_CHASSIS_ALIGN_RAD -1.634// 云台和底盘对齐指向相同方向时的电机position值,若对云台有机械改动需要修改
+#define YAW_CHASSIS_ALIGN_RAD 1.564f// 云台和底盘对齐指向相同方向时的电机position值,若对云台有机械改动需要修改
 #define YAW_ECD_GREATER_THAN_4096 0 // ALIGN_ECD值是否大于4096,是为1,否为0;用于计算云台偏转角度
 #define MAX_FF_SPEED_RAD 20
 #define PITCH_MAX_ANGLE (41.0f * PI / 180.0f)           // 云台竖直方向最大角度 (IMU, rad)
