@@ -39,7 +39,7 @@ void ShootInit()
     .controller_param_init_config = {
             .speed_PID = {
                 .Kp = 86.0f , // 原1.5按度/s调, 现rad/s
-                .Ki = 0.2f ,
+                .Ki = 6.0f ,
                 .Kd = 0,
                 .Improve = PID_Integral_Limit,
                 .IntegralLimit = 10000,
@@ -87,7 +87,7 @@ void ShootInit()
                     },
                     .speed_PID = {
                             .Kp = 200.5f, // 原3.5按度/s调, 现rad/s
-                            .Ki = 1.0f,
+                            .Ki = 4.0f,
                             .Kd = 0,
                             .Improve = PID_Integral_Limit,
                             .IntegralLimit = 5000,

@@ -38,17 +38,17 @@ static float last_auto_aim_mode;
 static Gimbal_GrayFF yaw_gray_ff;
 static Gimbal_GrayFF pitch_gray_ff;
 
-// --- 系统辨识配置宏 (pitch 力矩 chirp 扫频, 复用 yaw 的 chirp 生成器) ---
-#define SYS_ID_MODE_ON  0       // 保持 0: yaw chirp 关闭, chirp 函数由 pitch 复用
-#define SYS_ID_AMP      0.50f    // 力矩 chirp 振幅(指令单位), 4Hz 摆幅~3.1°
-#define SYS_ID_MIN_FREQ 4.0f    // 起始频率 4Hz
-#define SYS_ID_MAX_FREQ 12.0f   // 终止频率 15Hz
-#define SYS_ID_DURATION 10.0f   // 扫频时长 60s
+// --- 系统辨识配置宏 (Pitch 速度参考 chirp 扫频) ---
+#define SYS_ID_MODE_ON  0       // 保持 0: yaw chirp 关闭
+#define SYS_ID_AMP      0.20f   // 速度参考峰值(rad/s)，1Hz时角度峰值约11.5°
+#define SYS_ID_MIN_FREQ 1.0f    // 起始频率(Hz)
+#define SYS_ID_MAX_FREQ 5.0f   // 终止频率(Hz)
+#define SYS_ID_DURATION 30.0f   // 扫频时长(s)
 
-// Pitch 角度系统辨识 (力矩 chirp 扫频, 复用 yaw 的 Gimbal_SysID_Generate_Chirp)
-#define PITCH_SYS_ID_MODE_ON   0
-#define PITCH_SYS_ID_GRAVITY_FF 1  // 1: 保留重力补偿，0: 纯力矩输入（需机械支撑）
-#define PITCH_SYS_ID_LIMIT_RAD   (15.0f * DEGREE_2_RAD)  // 10° 兜底 gate
+// Pitch 速度环系统辨识；打开后仅运行速度环，关闭后恢复正常角度控制
+#define PITCH_SYS_ID_MODE_ON   1
+#define PITCH_SYS_ID_GRAVITY_FF 0  // 1: 保留重力补偿，0: 纯力矩输入（需机械支撑）
+#define PITCH_SYS_ID_LIMIT_RAD   (15.0f * DEGREE_2_RAD)  // 角度保护阈值
 
 #if SYS_ID_MODE_ON && PITCH_SYS_ID_MODE_ON
 #error "Yaw and pitch system identification modes cannot be enabled together."
@@ -193,7 +193,7 @@ void GimbalInit() {
             },
             .controller_param_init_config = {
                     .angle_PID = {
-                            .Kp = 15.0f,//并行扭矩量纲起始值(原级联50);实车重标定
+                            .Kp = 0.0f,//并行扭矩量纲起始值(原级联50);实车重标定
                             .Ki = 0.0f,
                             .Kd = 0.0f,
                             .Improve = PID_Trapezoid_Intergral | PID_Integral_Limit | PID_Derivative_On_Measurement,
@@ -202,7 +202,7 @@ void GimbalInit() {
 
                     },
                     .speed_PID = {
-                            .Kp = 1.20f,//并行扭矩量纲起始值(原级联2);阻尼,实车重标定
+                            .Kp = 0.5f,//并行扭矩量纲起始值(原级联2);阻尼,实车重标定
                             .Ki = 0.0f,
                             .Kd = 0.0f,
                             .Improve = PID_Integral_Limit | PID_Derivative_On_Measurement,
@@ -223,13 +223,13 @@ void GimbalInit() {
                     .angle_feedback_source = OTHER_FEED,
                     .speed_feedback_source = OTHER_FEED,
 #if PITCH_SYS_ID_MODE_ON
-                    // 灰箱辨识：参考值直接作为力矩，不经过角度/速度 PID。
-                    .outer_loop_type = CURRENT_LOOP,
-                    .close_loop_type = CURRENT_LOOP,
+                    // 速度环辨识：DMMotorSetRef() 的 pid_ref 作为速度参考。
+                    .outer_loop_type = SPEED_LOOP,
+                    .close_loop_type = SPEED_LOOP,
 #if PITCH_SYS_ID_GRAVITY_FF
                     .feedforward_flag = CURRENT_FEEDFORWARD,
 #else
-                    .feedforward_flag = 0,
+                    .feedforward_flag = FEEDFORWARD_NONE,
 #endif
 #else
                     .outer_loop_type = ANGLE_LOOP,
@@ -342,10 +342,12 @@ void GimbalTask() {
             DMMotorSetRef(yaw_motor, sys_id_target_speed);
             DMMotorSetRef(pitch_motor, 0.0f);
 #elif PITCH_SYS_ID_MODE_ON
-            // pitch 辨识: 开环力矩 chirp, 保留重力补偿; yaw 不给前馈
+            // Pitch 辨识: 速度环 chirp；停止 Yaw，避免另一轴改变机械边界条件
             yaw_current = 0.0f;
-            DMMotorSetRef(yaw_motor, 0.0f);
-            // 开环保护: 角度越限 → 力矩 0
+            DMMotorStop(yaw_motor);
+            yaw_motor->motor_controller.speed_PID.ITerm = 0.0f;
+            yaw_motor->motor_controller.speed_PID.Iout = 0.0f;
+            // 角度越限后撤销激励
             sys_id_target_speed = (fabsf(gimbal_IMU_data->Pitch) > PITCH_SYS_ID_LIMIT_RAD)
                                       ? 0.0f
                                       : Gimbal_SysID_Generate_Chirp(0.001f);
@@ -366,12 +368,14 @@ void GimbalTask() {
                 yaw_motor->motor_controller.speed_PID.Iout = 0.0f;
             }
 
-            // Pitch 同理
+            // Pitch 正常角度模式下才需要按角度误差清理速度积分；速度辨识时角度环未运行。
+#if !PITCH_SYS_ID_MODE_ON
             float pitch_angle_err = pitch_motor->motor_controller.angle_PID.Err;
             if (fabs(pitch_angle_err) > 0.5f) { // Pitch较轻，阈值可以小点
                 pitch_motor->motor_controller.speed_PID.ITerm = 0.0f;
                 pitch_motor->motor_controller.speed_PID.Iout = 0.0f;
             }
+#endif
 
             break;
 
