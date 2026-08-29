@@ -118,7 +118,6 @@ DMMotorInstance *DMMotorInit(Motor_Init_Config_s *config)
     PIDInit(&motor->motor_controller.current_PID, &config->controller_param_init_config.current_PID);
     PIDInit(&motor->motor_controller.speed_PID, &config->controller_param_init_config.speed_PID);
     PIDInit(&motor->motor_controller.angle_PID, &config->controller_param_init_config.angle_PID);
-    motor->motor_controller.angle_speed_PID_mode = config->controller_param_init_config.angle_speed_PID_mode;
     motor->motor_controller.other_angle_feedback_ptr = config->controller_param_init_config.other_angle_feedback_ptr;
     motor->motor_controller.other_speed_feedback_ptr = config->controller_param_init_config.other_speed_feedback_ptr;
     motor->motor_controller.angle_ref_ptr = config->controller_param_init_config.angle_ref_ptr;
@@ -162,9 +161,9 @@ void DMMotorStop(DMMotorInstance *motor)//不使用使能模式是因为需要�
     motor->stop_flag = MOTOR_STOP;
 }
 
-void DMMotorOuterLoop(DMMotorInstance *motor, Closeloop_Type_e type)
+void DMMotorLoopType(DMMotorInstance *motor, Closeloop_Type_e type)
 {
-    motor->motor_settings.outer_loop_type = type;
+    motor->motor_settings.loop_type = type;
 }
 
 
@@ -174,8 +173,8 @@ void DMMotorControl(){
     DM_Motor_Measure_s *measure;
     Motor_Control_Setting_s *setting;
     //CANInstance *motor_can = motor->motor_can_instance;
-    //uint16_t tmp;
     DMMotor_Send_s motor_send_mailbox;
+
     float control_ref, control_out, set, pid_measure;
     float angle_pid_out, angle_pid_ref;
     float speed_pid_out, speed_pid_ref;
@@ -190,10 +189,6 @@ void DMMotorControl(){
         measure = &motor->measure;
         angle_pid_out = 0.0f;
         speed_pid_out = 0.0f;
-        parallel_angle_speed =
-            motor_controller->angle_speed_PID_mode == ANGLE_SPEED_PARALLEL &&
-            (setting->close_loop_type & ANGLE_AND_SPEED_LOOP) == ANGLE_AND_SPEED_LOOP &&
-            setting->outer_loop_type == ANGLE_LOOP;
 
         if (motor->lost_flag==1) {
             //说明触发看门狗了，不再发送消息，仅仅重新发送使能指令
@@ -206,48 +201,43 @@ void DMMotorControl(){
             }
             continue;
         }
-        control_ref = motor->motor_controller.pid_ref; // 外部设定值
+
+        control_ref = motor_controller->pid_ref; // 外部设定值
 
         if (setting->motor_reverse_flag == MOTOR_DIRECTION_REVERSE)
             control_ref *= -1;
 
-        // 开环时外部设定值直接作为输出；闭环计算会覆盖control_out。
-        control_out = control_ref;
+        control_out = control_ref;//默认开环
 
         // 计算位置环,只有启用位置环且外层闭环为位置时会计算速度环输出
-        if ((setting->close_loop_type & ANGLE_LOOP) && setting->outer_loop_type == ANGLE_LOOP)
-        {
+        if (setting->loop_type & ANGLE_LOOP){
             if (setting->angle_feedback_source == OTHER_FEED) {
                 pid_measure = *motor_controller->other_angle_feedback_ptr;
-                angle_pid_ref = motor->motor_controller.pid_ref;
             }
             else {
                 pid_measure = measure->position; // MOTOR_FEED,对total angle闭环,防止在边界处出现突跃
-                angle_pid_ref = motor->motor_controller.pid_ref;
             }
-            if (parallel_angle_speed) {
-                angle_pid_ref = motor_controller->angle_ref_ptr != NULL
-                                    ? *motor_controller->angle_ref_ptr
-                                    : angle_pid_ref;
-            }
+            //统一用指针
+            angle_pid_ref = motor_controller->angle_ref_ptr != NULL
+                                ? *motor_controller->angle_ref_ptr
+                                : control_ref;
+
             angle_pid_out = PIDCalculate(&motor_controller->angle_PID, pid_measure, angle_pid_ref);
-            if (!parallel_angle_speed) {
-                control_ref = angle_pid_out; // 串级时角度环输出作为速度环参考值
-                control_out = angle_pid_out;
-            }
         }
 
         // 计算速度环,(外层闭环为速度或位置)且(启用速度环)时会计算速度环
-
-
-        if ((setting->close_loop_type & SPEED_LOOP) && (setting->outer_loop_type & (ANGLE_LOOP | SPEED_LOOP)))
+        if (setting->loop_type & SPEED_LOOP)
         {
-            if (parallel_angle_speed) {
+            if (setting->loop_type & ANGLE_SPEED_PARALLEL) {
                 speed_pid_ref = motor_controller->speed_ref_ptr != NULL
                                     ? *motor_controller->speed_ref_ptr
                                     : 0.0f;
-            } else {
-                speed_pid_ref = control_ref;
+            } else if (setting->loop_type & ANGLE_LOOP){
+                speed_pid_ref = angle_pid_out;
+            }else {
+                speed_pid_ref = motor_controller->speed_ref_ptr != NULL
+                                    ? *motor_controller->speed_ref_ptr
+                                    : control_ref;
             }
 
             if (setting->feedforward_flag & SPEED_FEEDFORWARD)
@@ -256,9 +246,18 @@ void DMMotorControl(){
                 pid_measure = *motor_controller->other_speed_feedback_ptr;
             else // MOTOR_FEED
                 pid_measure = measure->velocity;
+
             speed_pid_out = PIDCalculate(&motor_controller->speed_PID, pid_measure, speed_pid_ref);
-            control_out = parallel_angle_speed ? angle_pid_out + speed_pid_out : speed_pid_out;
         }
+
+        //========输出合成========
+        if (setting->loop_type & ANGLE_SPEED_PARALLEL)
+            control_out = angle_pid_out + speed_pid_out;
+        else if (setting->loop_type & SPEED_LOOP)
+            control_out = speed_pid_out;
+        else if (setting->loop_type & ANGLE_LOOP)
+            control_out = angle_pid_out;
+
         // 电流环前馈
         if (setting->feedforward_flag & CURRENT_FEEDFORWARD)
             control_out += *motor_controller->current_feedforward_ptr;

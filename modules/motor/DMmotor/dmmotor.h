@@ -87,7 +87,7 @@ DMMotorInstance *DMMotorInit(Motor_Init_Config_s *config);
 
 void DMMotorSetRef(DMMotorInstance *motor, float ref);
 
-void DMMotorOuterLoop(DMMotorInstance *motor,Closeloop_Type_e closeloop_type);
+void DMMotorLoopType(DMMotorInstance *motor,Closeloop_Type_e type);
 
 void DMMotorEnable(DMMotorInstance *motor);
 void DMMotorSetMode(DMMotor_Mode_e cmd, DMMotorInstance *motor);

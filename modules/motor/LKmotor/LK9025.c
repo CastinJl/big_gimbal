@@ -105,7 +105,7 @@ void LKMotorControl()
         setting = &motor->motor_settings;
         pid_ref = motor->pid_ref;
 
-        if ((setting->close_loop_type & ANGLE_LOOP) && setting->outer_loop_type == ANGLE_LOOP)
+        if ((setting->loop_type & ANGLE_LOOP) && setting->loop_type == ANGLE_LOOP)
         {
             if (setting->angle_feedback_source == OTHER_FEED)
                 pid_measure = *motor->other_angle_feedback_ptr;
@@ -116,7 +116,7 @@ void LKMotorControl()
                 pid_ref += *motor->speed_feedforward_ptr;
         }
 
-        if ((setting->close_loop_type & SPEED_LOOP) && setting->outer_loop_type & (ANGLE_LOOP | SPEED_LOOP))
+        if ((setting->loop_type & SPEED_LOOP) && setting->loop_type & (ANGLE_LOOP | SPEED_LOOP))
         {
             if (setting->angle_feedback_source == OTHER_FEED)
                 pid_measure = *motor->other_speed_feedback_ptr;
@@ -127,7 +127,7 @@ void LKMotorControl()
                 pid_ref += *motor->current_feedforward_ptr;
         }
 
-        if (setting->close_loop_type & CURRENT_LOOP)
+        if (setting->loop_type & CURRENT_LOOP)
         {
             pid_ref = PIDCalculate(&motor->current_PID, measure->real_current, pid_ref);
         }

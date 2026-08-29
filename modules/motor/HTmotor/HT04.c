@@ -155,7 +155,7 @@ __attribute__((noreturn)) void HTMotorTask(void const *argument)
     while (1)
     {
         pid_ref = motor->pid_ref;
-        if ((setting->close_loop_type & ANGLE_LOOP) && setting->outer_loop_type == ANGLE_LOOP)
+        if ((setting->loop_type & ANGLE_LOOP) && setting->loop_type == ANGLE_LOOP)
         {
             if (setting->angle_feedback_source == OTHER_FEED)
                 pid_measure = *motor->other_angle_feedback_ptr;
@@ -165,7 +165,7 @@ __attribute__((noreturn)) void HTMotorTask(void const *argument)
             pid_ref = PIDCalculate(&motor->angle_PID, pid_measure, pid_ref);
         }
 
-        if ((setting->close_loop_type & SPEED_LOOP) && setting->outer_loop_type & (ANGLE_LOOP | SPEED_LOOP))
+        if ((setting->loop_type & SPEED_LOOP) && setting->loop_type & (ANGLE_LOOP | SPEED_LOOP))
         {
             if (setting->feedforward_flag & SPEED_FEEDFORWARD)
                 pid_ref += *motor->speed_feedforward_ptr;
@@ -180,7 +180,7 @@ __attribute__((noreturn)) void HTMotorTask(void const *argument)
 
         if (setting->feedforward_flag & CURRENT_FEEDFORWARD)
             pid_ref += *motor->current_feedforward_ptr;
-        if (setting->close_loop_type & CURRENT_LOOP)
+        if (setting->loop_type & CURRENT_LOOP)
         {
             pid_ref = PIDCalculate(&motor->current_PID, measure->real_current, pid_ref);
         }
@@ -231,5 +231,5 @@ void HTMotorEnable(HTMotorInstance *motor)
 
 void HTMotorOuterLoop(HTMotorInstance *motor, Closeloop_Type_e type)
 {
-    motor->motor_settings.outer_loop_type = type;
+    motor->motor_settings.loop_type = type;
 }

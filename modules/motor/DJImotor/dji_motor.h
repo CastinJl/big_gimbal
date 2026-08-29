@@ -128,8 +128,8 @@ void DJIMotorEnable(DJIMotorInstance *motor);
  * @brief 修改电机闭环目标(外层闭环)
  *
  * @param motor  要修改的电机实例指针
- * @param outer_loop 外层闭环类型
+ * @param type 外层闭环类型
  */
-void DJIMotorOuterLoop(DJIMotorInstance *motor, Closeloop_Type_e outer_loop);
+void DJIMotorLoopType(DJIMotorInstance *motor, Closeloop_Type_e type);
 
 #endif // !DJI_MOTOR_H

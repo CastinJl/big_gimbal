@@ -202,7 +202,7 @@ DJIMotorInstance *DJIMotorInit(Motor_Init_Config_s *config) {
     PIDInit(&instance->motor_controller.current_PID, &config->controller_param_init_config.current_PID);
     PIDInit(&instance->motor_controller.speed_PID, &config->controller_param_init_config.speed_PID);
     PIDInit(&instance->motor_controller.angle_PID, &config->controller_param_init_config.angle_PID);
-    instance->motor_controller.angle_speed_PID_mode = config->controller_param_init_config.angle_speed_PID_mode;
+
     instance->motor_controller.other_angle_feedback_ptr = config->controller_param_init_config.other_angle_feedback_ptr;
     instance->motor_controller.other_speed_feedback_ptr = config->controller_param_init_config.other_speed_feedback_ptr;
     instance->motor_controller.angle_ref_ptr = config->controller_param_init_config.angle_ref_ptr;
@@ -251,8 +251,8 @@ void DJIMotorEnable(DJIMotorInstance *motor) {
 }
 
 /* 修改电机的实际闭环对象 */
-void DJIMotorOuterLoop(DJIMotorInstance *motor, Closeloop_Type_e outer_loop) {
-    motor->motor_settings.outer_loop_type = outer_loop;
+void DJIMotorLoopType(DJIMotorInstance *motor, Closeloop_Type_e type) {
+    motor->motor_settings.loop_type = type;
 }
 
 // 设置参考值
@@ -295,10 +295,6 @@ void DJIMotorControl() {
         control_ref = motor_controller->pid_ref; // 保存外部设定值
         angle_pid_out = 0.0f;
         speed_pid_out = 0.0f;
-        parallel_angle_speed =
-            motor_controller->angle_speed_PID_mode == ANGLE_SPEED_PARALLEL &&
-            (motor_setting->close_loop_type & ANGLE_AND_SPEED_LOOP) == ANGLE_AND_SPEED_LOOP &&
-            motor_setting->outer_loop_type == ANGLE_LOOP;
 
         if (motor_setting->motor_reverse_flag == MOTOR_DIRECTION_REVERSE)
             control_ref *= -1; // 设置反转
@@ -307,7 +303,7 @@ void DJIMotorControl() {
         control_out = control_ref;
 
         // 计算位置环,只有启用位置环且外层闭环为位置时会计算速度环输出
-        if ((motor_setting->close_loop_type & ANGLE_LOOP) && (motor_setting->outer_loop_type == ANGLE_LOOP)) {
+        if (motor_setting->loop_type & ANGLE_LOOP) {
             if (motor_setting->angle_feedback_source == OTHER_FEED)
                 pid_measure = *motor_controller->other_angle_feedback_ptr;
             else
@@ -318,7 +314,7 @@ void DJIMotorControl() {
                     pid_measure = measure->total_angle; // MOTOR_FEED,对total angle闭环,防止在边界处出现突跃
             }
 
-            if (parallel_angle_speed) {
+            if (motor_setting->loop_type & ANGLE_SPEED_PARALLEL) {
                 angle_pid_ref = motor_controller->angle_ref_ptr != NULL
                                     ? *motor_controller->angle_ref_ptr
                                     : control_ref;
@@ -326,20 +322,18 @@ void DJIMotorControl() {
                 angle_pid_ref = control_ref;
             }
             angle_pid_out = PIDCalculate(&motor_controller->angle_PID, pid_measure, angle_pid_ref);
-            if (!parallel_angle_speed) {
-                control_ref = angle_pid_out; // 串级时角度环输出作为速度环参考值
-                control_out = angle_pid_out;
-            }
         }
 
         // 计算速度环,(外层闭环为速度或位置)且(启用速度环)时会计算速度环
-        if ((motor_setting->close_loop_type & SPEED_LOOP) &&
-            (motor_setting->outer_loop_type & (ANGLE_LOOP | SPEED_LOOP))) {
-            if (parallel_angle_speed) {
+        if (motor_setting->loop_type & SPEED_LOOP) {
+            if (motor_setting->loop_type & ANGLE_SPEED_PARALLEL) {
                 speed_pid_ref = motor_controller->speed_ref_ptr != NULL
                                     ? *motor_controller->speed_ref_ptr
                                     : 0.0f;
-            } else {
+            }else if (motor_setting->loop_type & ANGLE_LOOP) {
+                speed_pid_ref = angle_pid_out;
+            }
+            else {
                 speed_pid_ref = control_ref;
             }
 
@@ -357,13 +351,20 @@ void DJIMotorControl() {
             }
 
             speed_pid_out = PIDCalculate(&motor_controller->speed_PID, pid_measure, speed_pid_ref);
-            control_out = parallel_angle_speed ? angle_pid_out + speed_pid_out : speed_pid_out;
         }
+
+        //========输出合成========
+        if (motor_setting->loop_type & ANGLE_SPEED_PARALLEL)
+            control_out = angle_pid_out + speed_pid_out;
+        else if (motor_setting->loop_type & SPEED_LOOP)
+            control_out = speed_pid_out;
+        else if (motor_setting->loop_type & ANGLE_LOOP)
+            control_out = angle_pid_out;
 
         // 计算电流环,目前只要启用了电流环就计算,不管外层闭环是什么,并且电流只有电机自身传感器的反馈
         if (motor_setting->feedforward_flag & CURRENT_FEEDFORWARD)
             control_out += *motor_controller->current_feedforward_ptr;
-        if (motor_setting->close_loop_type & CURRENT_LOOP) {
+        if (motor_setting->loop_type & CURRENT_LOOP) {
             //现在电调都有内置电流环，无需pid计算
             //control_out = PIDCalculate(&motor_controller->current_PID, measure->real_current, control_out);
         }

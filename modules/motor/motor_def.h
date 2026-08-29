@@ -23,15 +23,11 @@
  */
 typedef enum
 {
-    OPEN_LOOP = 0b0000,
-    CURRENT_LOOP = 0b0001,
-    SPEED_LOOP = 0b0010,
-    ANGLE_LOOP = 0b0100,
-
-    // only for checking
-    SPEED_AND_CURRENT_LOOP = 0b0011,
-    ANGLE_AND_SPEED_LOOP = 0b0110,
-    ALL_THREE_LOOP = 0b0111,
+    CURRENT_LOOP            = 0b0000,  // 开环
+    SPEED_LOOP              = 0b0001,  // bit0速度环
+    ANGLE_LOOP              = 0b0010,  // bit1角度环
+    ANGLE_SPEED_CASCADE     = 0b0011,  // 串级
+    ANGLE_SPEED_PARALLEL    = 0b0111,  // bit3并级标志
 } Closeloop_Type_e;
 
 typedef enum
@@ -77,8 +73,7 @@ typedef enum
 /* 电机控制设置,包括闭环类型,反转标志和反馈来源 */
 typedef struct
 {
-    Closeloop_Type_e outer_loop_type;              // 最外层的闭环,未设置时默认为最高级的闭环
-    Closeloop_Type_e close_loop_type;              // 使用几个闭环(串级)
+    Closeloop_Type_e loop_type;              // 最外层的闭环,未设置时默认为最高级的闭环
     Motor_Reverse_Flag_e motor_reverse_flag;       // 是否反转
     Feedback_Reverse_Flag_e feedback_reverse_flag; // 反馈是否反向
     Feedback_Source_e angle_feedback_source;       // 角度反馈类型
@@ -96,13 +91,6 @@ typedef enum
     VOLTAGE_CONTROL,
 } Motor_Control_Type_e;
 
-/* 角度环和速度环同时启用时的计算结构 */
-typedef enum
-{
-    ANGLE_SPEED_CASCADE = 0,
-    ANGLE_SPEED_PARALLEL,
-} Angle_Speed_PID_Mode_e;
-
 
 /* 电机控制器,包括其他来源的反馈数据指针,3环控制器和电机的参考输入*/
 // 后续增加前馈数据指针
@@ -118,7 +106,6 @@ typedef struct
     PIDInstance current_PID;
     PIDInstance speed_PID;
     PIDInstance angle_PID;
-    Angle_Speed_PID_Mode_e angle_speed_PID_mode;
 
     float pid_ref;     // 外部设定值,串级控制时作为最外环输入
     float control_out; // 停机处理和限幅后的最终电机控制命令
@@ -159,7 +146,6 @@ typedef struct
     PID_Init_Config_s current_PID;
     PID_Init_Config_s speed_PID;
     PID_Init_Config_s angle_PID;
-    Angle_Speed_PID_Mode_e angle_speed_PID_mode;
 } Motor_Controller_Init_s;
 
 /* 用于初始化CAN电机的结构体,各类电机通用 */
