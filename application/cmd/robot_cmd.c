@@ -205,7 +205,6 @@ static void Pitch_Speed_Limit_Update() {
 
 static void Gimbal_Test_Signal_Generator(void) {
 
-
     test_time_tick += CONTROL_PERIOD_S;
 
     // 1. 正弦波模式 (Sine Wave)
@@ -340,7 +339,7 @@ static void RemoteControlSet() {
         chassis_cmd_send.auto_aim_mode = 0;
         // 待添加,视觉会发来目标角速度和角加速度 rad/s  rad/s^2
         // ...
-        if (gimbal_cmd_send.gimbal_mode!=GIMBAL_FREE_MODE) {
+        if (gimbal_cmd_send.gimbal_mode!=GIMBAL_ZERO_FORCE) {
             gimbal_cmd_send.yaw_speed = -0.25f * DEGREE_2_RAD * (float) rc_data[TEMP].rc.rocker_l_;
             //gimbal_cmd_send.pitch += 0.001f * (float) rc_data[TEMP].rc.rocker_l1;
             gimbal_cmd_send.pitch_speed = 0.25f * DEGREE_2_RAD * (float) rc_data[TEMP].rc.rocker_l1;
@@ -887,7 +886,7 @@ static void EmergencyHandler() {
     if (switch_is_up(rc_data[TEMP].rc.switch_right) || referee_VT_data->vt_ctrl[TEMP].vt.trigger == 1) {
         robot_state = ROBOT_READY;
         shoot_cmd_send.shoot_mode = SHOOT_ON;
-        gimbal_cmd_send.gimbal_mode = GIMBAL_FREE_MODE;
+        gimbal_cmd_send.gimbal_mode = GIMBAL_ZERO_FORCE;
         gimbal_cmd_send.yaw = gimbal_fetch_data.gimbal_imu_data.YawTotalAngle;
         LOGINFO("[CMD] reinstate, robot ready");
     }

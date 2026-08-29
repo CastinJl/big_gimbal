@@ -23,13 +23,6 @@ typedef struct {
     float out_current;     // 发送给电调的电流指令
 }Gimbal_GrayFF;
 
-
-typedef struct {
-    float pos_f;   // 平滑后目标位置 (rad)
-    float vel_ref; // 期望角速度 (rad/s)
-    float acc_ref; // 期望角加速度 (rad/s²)
-    float test_current;
-} RefTraj_t;
 /**
  * @brief 初始化云台,会被RobotInit()调用
  * 

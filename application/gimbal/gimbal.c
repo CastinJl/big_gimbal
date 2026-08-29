@@ -51,7 +51,7 @@ static Gimbal_GrayFF pitch_gray_ff;
 #define PITCH_SYS_ID_LIMIT_RAD   (15.0f * DEGREE_2_RAD)  // 10° 兜底 gate
 
 #if SYS_ID_MODE_ON && PITCH_SYS_ID_MODE_ON
-#error "Yaw and pitch system identification modes cannot be enabled together."
+#error "Yaw and pitch system identification modes cannot| be enabled together."
 #endif
 
 // 系统辨识全局变量
@@ -82,28 +82,6 @@ float Gimbal_SysID_Generate_Chirp(float dt) {
 
     sys_id_tick += dt;
     return output;
-}
-
-static RefTraj_t yaw_traj;
-static RefTraj_t pitch_traj;
-// 最速跟踪微分器 (TD)
-// 输入：v_cmd (目标角度)
-// 输出：ref_pos, ref_vel, ref_acc
-// 参数：amax (最大加速度)
-void SPEED_TD(float v_cmd, float amax, RefTraj_t *t)
-{
-    float dt=0.001f;
-
-    float dv=v_cmd - t->vel_ref;
-    float alpha = dv /dt;
-
-    if (alpha > amax) alpha = amax;
-    else if (alpha < -amax) alpha = -amax;
-
-    t->vel_ref =v_cmd;
-    // t->vel_ref += alpha * dt; // 下一时刻参考速度
-    t->pos_f += t->vel_ref * dt;   // 下一时刻参考位置
-    t->acc_ref = alpha;             // 加速度
 }
 
 
@@ -234,7 +212,6 @@ void GimbalInit() {
 #else
                     .outer_loop_type = ANGLE_LOOP,
                     .close_loop_type = ANGLE_LOOP | SPEED_LOOP ,
-                    .motor_reverse_flag = MOTOR_DIRECTION_NORMAL,
                     .feedforward_flag = CURRENT_FEEDFORWARD,
 #endif
                     .motor_reverse_flag = MOTOR_DIRECTION_NORMAL,
@@ -281,13 +258,6 @@ void GimbalTask() {
             yaw_gray_ff.ref_acc = 0.0f;
             pitch_gray_ff.ref_vel = 0.0f;
             pitch_gray_ff.ref_acc = 0.0f;
-            // 同步参考轨迹到当前实际角度, 防止进 GYRO 时猛冲
-            yaw_traj.pos_f = gimbal_IMU_data->YawTotalAngle;
-            yaw_traj.vel_ref = 0.0f;
-            yaw_traj.acc_ref = 0.0f;
-            pitch_traj.vel_ref = 0.0f;
-            pitch_traj.acc_ref = 0.0f;
-            pitch_traj.pos_f = gimbal_IMU_data->Pitch; // 与 yaw_traj.pos_f=YawTotalAngle 对称, 防进 GYRO 猛冲
 
             break;
             // 使用陀螺仪的反馈,底盘根据yaw电机的offset跟随云台或视觉模式采用
@@ -295,43 +265,48 @@ void GimbalTask() {
             DMMotorEnable(yaw_motor);
             DMMotorEnable(pitch_motor);
 
-            // 本地参考轨迹整形: 把 yaw_ref(主目标) 展开成平滑的 ref_pos; 视觉/无视觉共用平滑位置
-
             if (gimbal_cmd_recv.auto_aim_mode == 1) {
-                // 视觉自瞄: 用视觉给的 yaw_v/yaw_acc(更好的外部预测)
+                // 视觉自瞄: 用视觉给的 yaw_v/yaw_acc
                 yaw_gray_ff.ref_pos = gimbal_cmd_recv.yaw;
                 yaw_gray_ff.ref_vel = gimbal_cmd_recv.vision_yaw_speed_ff;
                 yaw_gray_ff.ref_acc = gimbal_cmd_recv.vision_yaw_acc_ff;
                 pitch_gray_ff.ref_pos = gimbal_cmd_recv.pitch;
                 pitch_gray_ff.ref_vel = gimbal_cmd_recv.vision_pitch_speed_ff;
                 pitch_gray_ff.ref_acc = gimbal_cmd_recv.vision_pitch_acc_ff;
-            } else {
-                if (last_auto_aim_mode == 1) {
-                    yaw_traj.pos_f = gimbal_IMU_data->YawTotalAngle;
-                    yaw_traj.vel_ref = 0.0f;
-                    yaw_traj.acc_ref = 0.0f;
-                    pitch_traj.vel_ref = 0.0f;
-                    pitch_traj.acc_ref = 0.0f;
-                    pitch_traj.pos_f = gimbal_IMU_data->Pitch; // ref_pos 从当前角度开始, 无位置跳变
 
+                DMMotorOuterLoop(yaw_motor, ANGLE_AND_SPEED_LOOP);
+                DMMotorOuterLoop(pitch_motor, ANGLE_AND_SPEED_LOOP);
+            } else {
+                const float DEADZONE = 0.01f;
+
+                if (fabsf(gimbal_cmd_recv.yaw_speed) > DEADZONE || fabsf(gimbal_cmd_recv.pitch_speed) > DEADZONE) {
+                    //有输入，速度单环
+                    DMMotorOuterLoop(yaw_motor, SPEED_LOOP);
+                    DMMotorOuterLoop(pitch_motor, SPEED_LOOP);
+
+                    yaw_gray_ff.ref_vel = gimbal_cmd_recv.yaw_speed;
+                    yaw_gray_ff.ref_acc = 0.0f;
+                    pitch_gray_ff.ref_vel = gimbal_cmd_recv.pitch_speed;
+                    pitch_gray_ff.ref_acc = 0.0f;
+                }else {
+                    //无输入，角度保持
+                    DMMotorOuterLoop(yaw_motor, ANGLE_LOOP);
+                    DMMotorOuterLoop(pitch_motor, ANGLE_LOOP);
+
+                    static uint8_t last_had_input_flag = 0;
+                    uint8_t had_input_flag = (fabsf(gimbal_cmd_recv.yaw_speed) > DEADZONE || fabsf(gimbal_cmd_recv.pitch_speed) > DEADZONE);
+
+                    if (last_auto_aim_mode == 1 ||last_had_input_flag) {
+                        yaw_gray_ff.ref_pos = gimbal_IMU_data->YawTotalAngle;
+                        pitch_gray_ff.ref_pos = gimbal_IMU_data->Pitch;
+                    }
+                    yaw_gray_ff.ref_vel = 0.0f;
+                    yaw_gray_ff.ref_acc = 0.0f;
+                    pitch_gray_ff.ref_vel = 0.0f;
+                    pitch_gray_ff.ref_acc = 0.0f;
+
+                    last_had_input_flag = had_input_flag;
                 }
-                // 无视觉: 用本地轨迹生成的 ref_vel/ref_acc
-                SPEED_TD(gimbal_cmd_recv.yaw_speed, YAW_ACC_MAX, &yaw_traj);
-                SPEED_TD(gimbal_cmd_recv.pitch_speed, PITCH_ACC_MAX, &pitch_traj);
-                // pitch 限位: 只挡越界方向, 反推放行 → 到限幅能回去
-                if (pitch_traj.pos_f > PITCH_MAX_ANGLE) {
-                    pitch_traj.pos_f = PITCH_MAX_ANGLE;
-                    if (pitch_traj.vel_ref > 0.0f) pitch_traj.vel_ref = 0.0f;
-                } else if (pitch_traj.pos_f < PITCH_MIN_ANGLE) {
-                    pitch_traj.pos_f = PITCH_MIN_ANGLE;
-                    if (pitch_traj.vel_ref < 0.0f) pitch_traj.vel_ref = 0.0f;
-                }
-                yaw_gray_ff.ref_pos = yaw_traj.pos_f;
-                yaw_gray_ff.ref_vel = yaw_traj.vel_ref;
-                yaw_gray_ff.ref_acc = yaw_traj.acc_ref;
-                pitch_gray_ff.ref_pos = pitch_traj.pos_f;
-                pitch_gray_ff.ref_vel = pitch_traj.vel_ref;
-                pitch_gray_ff.ref_acc = pitch_traj.acc_ref;
             }
             last_auto_aim_mode = gimbal_cmd_recv.auto_aim_mode;
 
@@ -353,7 +328,7 @@ void GimbalTask() {
 #else
 
             yaw_current = Torque_ff_Yaw(&yaw_gray_ff);
-
+            pitch_current = Torque_ff_Pitch(&pitch_gray_ff);
             DMMotorSetRef(yaw_motor, 0.0f);
             DMMotorSetRef(pitch_motor, 0.0f);
 #endif
@@ -375,32 +350,6 @@ void GimbalTask() {
 
             break;
 
-
-            // 云台自由模式,使用编码器反馈,底盘和云台分离,仅云台旋转,一般用于调整云台姿态(英雄吊射等)/能量机关,
-            case GIMBAL_FREE_MODE: // 后续删除,或加入云台追地盘的跟随模式(响应速度更快)
-            DMMotorStop(yaw_motor);
-            DMMotorStop(pitch_motor);
-            yaw_motor->motor_controller.speed_PID.ITerm = 0.0f;
-            yaw_motor->motor_controller.speed_PID.Iout = 0.0f;
-            pitch_motor->motor_controller.speed_PID.ITerm = 0.0f;
-            pitch_motor->motor_controller.speed_PID.Iout = 0.0f;
-            yaw_current = 0.0f;
-            yaw_gray_ff.ref_vel = 0.0f;
-            yaw_gray_ff.ref_acc = 0.0f;
-            // 同步参考轨迹到当前实际角度, 防止回 GYRO 时猛冲
-            yaw_traj.pos_f   = gimbal_IMU_data->YawTotalAngle;
-            yaw_traj.vel_ref = 0.0f;
-            yaw_traj.acc_ref = 0.0f;
-            // 对称补 pitch 轨迹同步 + 前馈清零, 防回 GYRO 猛冲/前馈尖峰
-            pitch_traj.pos_f   = gimbal_IMU_data->Pitch;
-            pitch_traj.vel_ref = 0.0f;
-            pitch_traj.acc_ref = 0.0f;
-            pitch_gray_ff.ref_vel = 0.0f;
-            pitch_gray_ff.ref_acc = 0.0f;
-
-            break;
-            default:
-            break;
         }
     }
     // 根据IMU姿态/pitch电机角度反馈计算出当前配重下的重力矩
@@ -413,7 +362,6 @@ void GimbalTask() {
     // else {
     //     pitch_current = 0.8383*arm_cos_f32(theta+1.0106)-0.2;
     // }
-        pitch_current = Torque_ff_Pitch(&pitch_gray_ff);
 
 
         // 设置反馈数据,主要是imu和yaw的ecd
