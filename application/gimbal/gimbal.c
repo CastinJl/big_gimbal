@@ -10,22 +10,20 @@
 #include "math.h"
 #include "CTC_Control.h"
 
-
-
-static attitude_t *gimbal_IMU_data; // 云台IMU数据
-static DMMotorInstance *yaw_motor;
-static DMMotorInstance  *pitch_motor;
+attitude_t *gimbal_IMU_data; // 云台IMU数据
+DMMotorInstance *yaw_motor;
+DMMotorInstance  *pitch_motor;
 
 static Publisher_t *gimbal_pub;                   // 云台应用消息发布者(云台反馈给cmd)
 static Subscriber_t *gimbal_sub;                  // cmd控制消息订阅者
-static Gimbal_Upload_Data_s gimbal_feedback_data; // 回传给cmd的云台状态信息
+Gimbal_Upload_Data_s gimbal_feedback_data; // 回传给cmd的云台状态信息
 static Gimbal_Ctrl_Cmd_s gimbal_cmd_recv;         // 来自cmd的控制信息
 static float pitch_current = 0;
 static float yaw_current = 0;
 
 static float last_auto_aim_mode;
-static CTC_Controller yaw_cmd;
-static CTC_Controller pitch_cmd;
+CTC_Controller yaw_cmd;
+CTC_Controller pitch_cmd;
 
 // --- 系统辨识配置宏 (Pitch 速度参考 chirp 扫频) ---
 #define SYS_ID_MODE_ON  0       // 保持 0: yaw chirp 关闭
@@ -243,33 +241,20 @@ void GimbalTask() {
                 DMMotorLoopType(pitch_motor, ANGLE_SPEED_PARALLEL);
             } else {
                 const float DEADZONE = 0.01f;
+                static uint8_t last_had_input_flag = 0;
+                uint8_t had_input_flag = (fabsf(gimbal_cmd_recv.yaw_speed) > DEADZONE || fabsf(gimbal_cmd_recv.pitch_speed) > DEADZONE);
 
-                if (fabsf(gimbal_cmd_recv.yaw_speed) > DEADZONE || fabsf(gimbal_cmd_recv.pitch_speed) > DEADZONE) {
+                if (had_input_flag) {
                     //有输入，速度单环
-                    yaw_cmd.ref_vel = gimbal_cmd_recv.yaw_speed;
-                    yaw_cmd.ref_acc = 0.0f;
-                    pitch_cmd.ref_vel = gimbal_cmd_recv.pitch_speed;
-                    pitch_cmd.ref_acc = 0.0f;
-                    DMMotorLoopType(yaw_motor, SPEED_LOOP);
-                    DMMotorLoopType(pitch_motor, SPEED_LOOP);
+                    CTC_Pitch_Control(1, gimbal_cmd_recv.pitch_speed, 0);
+                    CTC_Yaw_Control(1, gimbal_cmd_recv.yaw_speed, 0);
                 }else {
                     //无输入，角度保持
-                    static uint8_t last_had_input_flag = 0;
-                    uint8_t had_input_flag = (fabsf(gimbal_cmd_recv.yaw_speed) > DEADZONE || fabsf(gimbal_cmd_recv.pitch_speed) > DEADZONE);
-
-                    if (last_auto_aim_mode == 1 ||last_had_input_flag) {
-                        yaw_cmd.ref_pos = gimbal_IMU_data->YawTotalAngle;
-                        pitch_cmd.ref_pos = gimbal_IMU_data->Pitch;
-                    }
-                    yaw_cmd.ref_vel = 0.0f;
-                    yaw_cmd.ref_acc = 0.0f;
-                    pitch_cmd.ref_vel = 0.0f;
-                    pitch_cmd.ref_acc = 0.0f;
-
-                    DMMotorLoopType(yaw_motor, ANGLE_SPEED_CASCADE);
-                    DMMotorLoopType(pitch_motor, ANGLE_SPEED_CASCADE);
-                    last_had_input_flag = had_input_flag;
+                    uint8_t need_update = last_auto_aim_mode == 1 ||last_had_input_flag;
+                    CTC_Pitch_Control(0, 0.0f, need_update);
+                    CTC_Yaw_Control(0, 0.0f, need_update);
                 }
+                last_had_input_flag = had_input_flag;
             }
             last_auto_aim_mode = gimbal_cmd_recv.auto_aim_mode;
 

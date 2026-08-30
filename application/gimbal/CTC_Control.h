@@ -33,7 +33,8 @@ typedef struct {
 
 float Torque_ff_Yaw(CTC_Controller *ff);
 float Torque_ff_Pitch(CTC_Controller *ff,float theta);
-void CTC_Control(CTC_Controller * motor);
 
+void CTC_Pitch_Control(uint8_t is_speed_mode, float speed_cmd, uint8_t need_update);
+void CTC_Yaw_Control(uint8_t is_speed_mode, float speed_cmd, uint8_t need_update);
 
 #endif //STEER_GIMBAL_CTC_CONTROL_H
