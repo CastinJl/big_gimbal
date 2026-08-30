@@ -37,20 +37,15 @@ static Shoot_Ctrl_Cmd_s shoot_cmd_send;      // 发送给底盘应用的信息,�
 static Shoot_Upload_Data_s shoot_fetch_data; // 从底盘应用接收的反馈信息信息,底盘功率枪口热量与底盘运动状态等
 extern SuperCapInstance *cap;             // 超级电容
 static RC_ctrl_t *rc_data;                // 遥控器数据,初始化时返回
-static VT_ctrl_t *vt_data;               // 图传链路下发的键鼠遥控数据 与遥控器数据格式保持一致
 static float diff_yaw;
 //static Vision_Recv_s *vision_recv_data; // 视觉接收数据指针,初始化时返回
-//static Vision_Send_s vision_send_data;  // 视觉发送数据
+
 static RecievePacket_t *vision_recv_data; // 视觉接收数据指针,初始化时返回
 VT_info_t *referee_VT_data; //图传链路数据
 
 //自瞄相关信息
 static uint8_t aim_suggest_fire;
-static uint32_t no_find_cnt;      // 未发现目标计数
-static uint8_t auto_aim_flag = 0; //辅助瞄准标志位  视野内有目标开启 目标丢失关闭
-static uint8_t choose_amor_id = 0;
-static uint16_t friction_speed = 37000;
-static float yaw_err_for_test;
+static uint16_t friction_speed = 650;
 
 static Publisher_t *gimbal_cmd_pub;            // 云台控制消息发布者
 static Subscriber_t *gimbal_feed_sub;          // 云台反馈信息订阅者

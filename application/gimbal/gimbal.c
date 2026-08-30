@@ -33,8 +33,8 @@ CTC_Controller pitch_cmd;
 #define SYS_ID_DURATION 30.0f   // 扫频时长(s)
 
 // Pitch 速度环系统辨识；打开后仅运行速度环，关闭后恢复正常角度控制
-#define PITCH_SYS_ID_MODE_ON   1
-#define PITCH_SYS_ID_GRAVITY_FF 0  // 1: 保留重力补偿，0: 纯力矩输入（需机械支撑）
+#define PITCH_SYS_ID_MODE_ON   0
+#define PITCH_SYS_ID_GRAVITY_FF 1  // 1: 保留重力补偿，0: 纯力矩输入（需机械支撑）
 #define PITCH_SYS_ID_LIMIT_RAD   (15.0f * DEGREE_2_RAD)  // 角度保护阈值
 
 #if SYS_ID_MODE_ON && PITCH_SYS_ID_MODE_ON

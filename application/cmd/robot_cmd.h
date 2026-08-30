@@ -2,11 +2,6 @@
 #define ROBOT_CMD_H
 #include "remote_control.h"
 
-#pragma pack(1)
-typedef struct {
-    int16_t chassis_lift;
-}custom_control_t;
-#pragma pack()
 /**
  * @brief 机器人核心控制任务初始化,会被RobotInit()调用
  * 
