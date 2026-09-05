@@ -226,9 +226,8 @@ void DMMotorControl(){
         }
 
         // 计算速度环,(外层闭环为速度或位置)且(启用速度环)时会计算速度环
-        if (setting->loop_type & SPEED_LOOP)
-        {
-            if (setting->loop_type & ANGLE_SPEED_PARALLEL) {
+        if (setting->loop_type & SPEED_LOOP){
+            if (setting->loop_type == ANGLE_SPEED_PARALLEL) {
                 speed_pid_ref = motor_controller->speed_ref_ptr != NULL
                                     ? *motor_controller->speed_ref_ptr
                                     : 0.0f;
@@ -251,7 +250,7 @@ void DMMotorControl(){
         }
 
         //========输出合成========
-        if (setting->loop_type & ANGLE_SPEED_PARALLEL)
+        if (setting->loop_type == ANGLE_SPEED_PARALLEL)
             control_out = angle_pid_out + speed_pid_out;
         else if (setting->loop_type & SPEED_LOOP)
             control_out = speed_pid_out;

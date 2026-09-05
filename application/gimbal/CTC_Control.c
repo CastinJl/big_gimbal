@@ -73,12 +73,11 @@ void CTC_Pitch_Control(uint8_t is_speed_mode, float speed_cmd, uint8_t need_upda
 
 void CTC_Yaw_Control(uint8_t is_speed_mode, float speed_cmd, uint8_t need_update) {
     if (is_speed_mode) {
-        DMMotorLoopType(yaw_motor, ANGLE_SPEED_CASCADE);
-        yaw_cmd.ref_pos = speed_cmd;
-        yaw_cmd.ref_vel = 0.0f;
+        DMMotorLoopType(yaw_motor, SPEED_LOOP);
+        yaw_cmd.ref_vel = speed_cmd;
         yaw_cmd.ref_acc = 0.0f;
     }else {
-        DMMotorLoopType(yaw_motor, SPEED_LOOP);
+        DMMotorLoopType(yaw_motor, ANGLE_SPEED_CASCADE);
         if (need_update) yaw_cmd.ref_pos = gimbal_IMU_data->YawTotalAngle;
         yaw_cmd.ref_vel = 0.0f;
         yaw_cmd.ref_acc = 0.0f;

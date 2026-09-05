@@ -314,7 +314,7 @@ void DJIMotorControl() {
                     pid_measure = measure->total_angle; // MOTOR_FEED,对total angle闭环,防止在边界处出现突跃
             }
 
-            if (motor_setting->loop_type & ANGLE_SPEED_PARALLEL) {
+            if (motor_setting->loop_type == ANGLE_SPEED_PARALLEL) {
                 angle_pid_ref = motor_controller->angle_ref_ptr != NULL
                                     ? *motor_controller->angle_ref_ptr
                                     : control_ref;
@@ -326,7 +326,7 @@ void DJIMotorControl() {
 
         // 计算速度环,(外层闭环为速度或位置)且(启用速度环)时会计算速度环
         if (motor_setting->loop_type & SPEED_LOOP) {
-            if (motor_setting->loop_type & ANGLE_SPEED_PARALLEL) {
+            if (motor_setting->loop_type == ANGLE_SPEED_PARALLEL) {
                 speed_pid_ref = motor_controller->speed_ref_ptr != NULL
                                     ? *motor_controller->speed_ref_ptr
                                     : 0.0f;
@@ -354,7 +354,7 @@ void DJIMotorControl() {
         }
 
         //========输出合成========
-        if (motor_setting->loop_type & ANGLE_SPEED_PARALLEL)
+        if (motor_setting->loop_type == ANGLE_SPEED_PARALLEL)
             control_out = angle_pid_out + speed_pid_out;
         else if (motor_setting->loop_type & SPEED_LOOP)
             control_out = speed_pid_out;
