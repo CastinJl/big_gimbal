@@ -251,6 +251,7 @@ typedef struct
     uint16_t heat_cool;  // 热量每秒冷却值
     uint8_t robot_level;
     uint8_t aim_flag;
+    uint8_t vision_fire_trigger; // aim_suggest_fire 0->1 且实际下发视觉发弹指令时置 1
 } Shoot_Ctrl_Cmd_s;
 
 /* ----------------gimbal/shoot/chassis发布的反馈数据----------------*/

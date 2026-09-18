@@ -301,7 +301,7 @@ static void RemoteControlSet() {
     }
     // 左侧开关状态为[下],视觉模式
 
-    if (switch_is_down(rc_data[TEMP].rc.switch_left)) {
+    if (switch_is_down(rc_data[TEMP].rc.switch_left) || switch_is_up(rc_data[TEMP].rc.switch_left)) {
         if (vision_recv_data->distance != -1 && vision_recv_data->yaw != 0 && vision_recv_data->pitch != 0) {
             auto_aim_mode();
             gimbal_cmd_send.auto_aim_mode = 1;
@@ -348,8 +348,8 @@ static void RemoteControlSet() {
             shoot_cmd_send.loader_mode = LOAD_BURSTFIRE;
         }
         else {
-            shoot_cmd_send.loader_mode = LOAD_STOP;
-            shoot_cmd_send.shoot_mode = SHOOT_OFF;
+            shoot_cmd_send.loader_mode = LOAD_1_BULLET;
+            shoot_cmd_send.shoot_mode = SHOOT_ON;
         }
     }
     else
@@ -836,6 +836,9 @@ static void EmergencyHandler() {
 
 /* 机器人核心控制任务,200Hz频率运行(必须高于视觉发送频率) */
 void RobotCMDTask() {
+    static uint8_t last_aim_suggest_fire;
+    uint8_t aim_suggest_fire_rising;
+
     // 从其他应用获取回传数据
 #ifdef ONE_BOARD
     SubGetMessage(chassis_feed_sub, (void *) &chassis_fetch_data);
@@ -852,6 +855,9 @@ void RobotCMDTask() {
     gimbal_cmd_send.DMMOTOR_Error_Clear_flag = 0;
     chassis_fetch_data = *(Chassis_Upload_Data_s *)CANCommGet(cmd_can_comm);
     Vision_UI_Update();
+    aim_suggest_fire_rising = aim_suggest_fire && !last_aim_suggest_fire;
+    last_aim_suggest_fire = aim_suggest_fire;
+    shoot_cmd_send.vision_fire_trigger = 0;
     CalcOffsetAngle();
     EmergencyHandler(); // 处理模块离线和遥控器急停等紧急情况
     if(referee_VT_data->vt_ctrl[TEMP].vt.wheel != 0)
@@ -931,6 +937,14 @@ void RobotCMDTask() {
     }
     if (referee_data->GameRobotState.power_management_shooter_output == 0){
         // shoot_cmd_send.shoot_mode = SHOOT_OFF;
+    }
+
+    if (aim_suggest_fire_rising && gimbal_cmd_send.auto_aim_mode &&
+        shoot_cmd_send.shoot_mode == SHOOT_ON &&
+        shoot_cmd_send.friction_mode == FRICTION_ON &&
+        (shoot_cmd_send.loader_mode == LOAD_1_BULLET ||
+         shoot_cmd_send.loader_mode == LOAD_BURSTFIRE)) {
+        shoot_cmd_send.vision_fire_trigger = 1;
     }
 
 

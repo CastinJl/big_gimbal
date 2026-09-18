@@ -6,8 +6,16 @@
 #include "bsp_dwt.h"
 #include "general_def.h"
 #include "servo_motor.h"
+#include "master_process.h"
 
 #define HEAT_PER_BULLET        10.0f  // 每发子弹热量增量
+
+// TODO: 根据实测的摩擦轮稳态电流和弹丸脉冲统计值调整这些默认参数。
+#define BULLET_CURRENT_RISE_DELTA_DEFAULT     1000.0f // 相对基准上升超过该值，认为弹丸开始经过摩擦轮
+#define BULLET_CURRENT_RECOVER_DELTA_DEFAULT   300.0f // 回落至基准值加该余量以内，认为弹丸离开摩擦轮
+#define BULLET_RISE_CONFIRM_MS_DEFAULT           2.0f // 电流上升的最短确认时间
+#define BULLET_RECOVER_CONFIRM_MS_DEFAULT        3.0f // 电流恢复的最短确认时间
+#define BULLET_DETECT_TIMEOUT_MS_DEFAULT        500.0f//超时检测。超过这个时间还没有下降，认为出现卡弹或者其他故障
 
 /* 对于双发射机构的机器人,将下面的数据封装成结构体即可,生成两份shoot应用实例 */
 static DJIMotorInstance *friction_l, *friction_r, *loader; // 拨盘电机
@@ -27,6 +35,92 @@ float speed_loader_set = 8;
 static HeatControl_t heat_control;
 float shoot_speed;
 float ref_speed = 1000.0f,fan_speed = 12.0f,fan_time=50;
+static Bullet_Detect_State_s bullet_detect;
+static float single_fire_delay_ms;
+static float burst_fire_delay_ms;
+
+//保护函数
+static void BulletDetectReset(void)
+{
+    bullet_detect.state = BULLET_DETECT_IDLE;
+    bullet_detect.rise_candidate_time_ms = 0.0f;
+    bullet_detect.recover_candidate_time_ms = 0.0f;
+}
+
+static void BulletDetectUpdate(void)
+{
+    static uint8_t trigger_latched;
+    const float now_ms = DWT_GetTimeline_ms();
+    const float left_current = fabsf((float)friction_l->measure.real_current);
+    const float right_current = fabsf((float)friction_r->measure.real_current);
+
+    if (shoot_cmd_recv.vision_fire_trigger && !trigger_latched &&
+        shoot_cmd_recv.friction_mode == FRICTION_ON &&
+        (shoot_cmd_recv.loader_mode == LOAD_1_BULLET ||
+         shoot_cmd_recv.loader_mode == LOAD_BURSTFIRE)) {
+        bullet_detect.state = BULLET_DETECT_WAIT_RISE;
+        bullet_detect.loader_mode = shoot_cmd_recv.loader_mode;
+        bullet_detect.trigger_time_ms = now_ms;
+        bullet_detect.rise_candidate_time_ms = 0.0f;
+        bullet_detect.recover_candidate_time_ms = 0.0f;
+        bullet_detect.left_baseline_current = left_current;
+        bullet_detect.right_baseline_current = right_current;
+        if (bullet_detect.loader_mode == LOAD_1_BULLET) {
+            single_fire_delay_ms = 0.0f;
+        } else {
+            burst_fire_delay_ms = 0.0f;
+        }
+        VisionSetFireDelay(single_fire_delay_ms, burst_fire_delay_ms);
+    }
+    trigger_latched = shoot_cmd_recv.vision_fire_trigger;
+
+    if (bullet_detect.state == BULLET_DETECT_IDLE) {
+        return;
+    }
+    if (now_ms - bullet_detect.trigger_time_ms > BULLET_DETECT_TIMEOUT_MS_DEFAULT ||
+        shoot_cmd_recv.friction_mode != FRICTION_ON) {
+        BulletDetectReset();
+        return;
+    }
+
+    const float left_current_delta = left_current - bullet_detect.left_baseline_current;
+    const float right_current_delta = right_current - bullet_detect.right_baseline_current;
+    if (bullet_detect.state == BULLET_DETECT_WAIT_RISE) {
+        if (left_current_delta >= BULLET_CURRENT_RISE_DELTA_DEFAULT &&
+            right_current_delta >= BULLET_CURRENT_RISE_DELTA_DEFAULT) {
+            if (bullet_detect.rise_candidate_time_ms == 0.0f) {
+                bullet_detect.rise_candidate_time_ms = now_ms;
+            }
+            if (now_ms - bullet_detect.rise_candidate_time_ms >= BULLET_RISE_CONFIRM_MS_DEFAULT) {
+                bullet_detect.recover_candidate_time_ms = 0.0f;
+                bullet_detect.state = BULLET_DETECT_WAIT_RECOVER;
+            }
+        } else {
+            bullet_detect.rise_candidate_time_ms = 0.0f;
+        }
+        return;
+    }
+
+    if (left_current_delta <= BULLET_CURRENT_RECOVER_DELTA_DEFAULT &&
+        right_current_delta <= BULLET_CURRENT_RECOVER_DELTA_DEFAULT) {
+        if (bullet_detect.recover_candidate_time_ms == 0.0f) {
+            bullet_detect.recover_candidate_time_ms = now_ms;
+        }
+        if (now_ms - bullet_detect.recover_candidate_time_ms >= BULLET_RECOVER_CONFIRM_MS_DEFAULT) {
+            const float delay_ms = bullet_detect.recover_candidate_time_ms -
+                                   bullet_detect.trigger_time_ms;
+            if (bullet_detect.loader_mode == LOAD_1_BULLET) {
+                single_fire_delay_ms = delay_ms;
+            } else {
+                burst_fire_delay_ms = delay_ms;
+            }
+            VisionSetFireDelay(single_fire_delay_ms, burst_fire_delay_ms);
+            BulletDetectReset();
+        }
+    } else {
+        bullet_detect.recover_candidate_time_ms = 0.0f;
+    }
+}
 
 
 void ShootInit()
@@ -156,6 +250,7 @@ void ShootTask()
     heat_control.cooling_rate = shoot_cmd_recv.heat_cool;
     current_loader = loader->measure.real_current;
     speed_loader = loader->measure.speed_rad_per_second;
+    BulletDetectUpdate();
 
     // 对shoot mode等于SHOOT_STOP的情况特殊处理,直接停止所有电机(紧急停止)
     if (shoot_cmd_recv.shoot_mode == SHOOT_OFF)
