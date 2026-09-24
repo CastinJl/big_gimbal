@@ -22,6 +22,7 @@ static float pitch_current = 0;
 static float yaw_current = 0;
 
 static float last_auto_aim_mode;
+static uint8_t last_gimbal_mode;
 CTC_Controller yaw_cmd;
 CTC_Controller pitch_cmd;
 
@@ -221,6 +222,8 @@ void GimbalTask() {
             yaw_cmd.ref_acc = 0.0f;
             pitch_cmd.ref_vel = 0.0f;
             pitch_cmd.ref_acc = 0.0f;
+
+            last_gimbal_mode = GIMBAL_ZERO_FORCE;
             break;
 
             // 使用陀螺仪的反馈,底盘根据yaw电机的offset跟随云台或视觉模式采用
@@ -250,13 +253,14 @@ void GimbalTask() {
                     CTC_Yaw_Control(1, gimbal_cmd_recv.yaw_speed, 0);
                 }else {
                     //无输入，角度保持
-                    uint8_t need_update = last_auto_aim_mode == 1 ||last_had_input_flag;
+                    uint8_t need_update = (last_auto_aim_mode == 1 ||last_had_input_flag || last_gimbal_mode == GIMBAL_ZERO_FORCE);
                     CTC_Pitch_Control(0, 0.0f, need_update);
                     CTC_Yaw_Control(0, 0.0f, need_update);
                 }
                 last_had_input_flag = had_input_flag;
             }
             last_auto_aim_mode = gimbal_cmd_recv.auto_aim_mode;
+            last_gimbal_mode = gimbal_cmd_recv.gimbal_mode;
 
 #if SYS_ID_MODE_ON
             // 辨识输入必须是纯 chirp，不能叠加正常闭环和模型前馈。
