@@ -39,7 +39,7 @@ uint8_t CTC_Pitch_Limit(float speed_cmd, float *safe_angle) {
         *safe_angle = imu + max_allow_delta;
         return 1;
     }
-    if (encoder < PITCH_MIN_ECD && speed_cmd < 0.01f) {
+    if (encoder < PITCH_MIN_ECD && speed_cmd < -0.01f) {
         float min_allow_delta = PITCH_MIN_ECD - encoder;
         *safe_angle = imu + min_allow_delta;
         return 1;
