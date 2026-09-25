@@ -11,11 +11,12 @@
 #define HEAT_PER_BULLET        10.0f  // 每发子弹热量增量
 
 // TODO: 根据实测的摩擦轮稳态电流和弹丸脉冲统计值调整这些默认参数。
-#define BULLET_CURRENT_RISE_DELTA_DEFAULT     1000.0f // 相对基准上升超过该值，认为弹丸开始经过摩擦轮
-#define BULLET_CURRENT_RECOVER_DELTA_DEFAULT   300.0f // 回落至基准值加该余量以内，认为弹丸离开摩擦轮
-#define BULLET_RISE_CONFIRM_MS_DEFAULT           2.0f // 电流上升的最短确认时间
-#define BULLET_RECOVER_CONFIRM_MS_DEFAULT        3.0f // 电流恢复的最短确认时间
+#define BULLET_CURRENT_RISE_DELTA_DEFAULT     1100.0f // 相对基准上升超过该值，认为弹丸开始经过摩擦轮
+#define BULLET_CURRENT_RECOVER_DELTA_DEFAULT   400.0f // 回落至基准值加该余量以内，认为弹丸离开摩擦轮
+#define BULLET_RISE_CONFIRM_MS_DEFAULT           6.0f // 电流上升的最短确认时间
+#define BULLET_RECOVER_CONFIRM_MS_DEFAULT        6.0f // 电流恢复的最短确认时间
 #define BULLET_DETECT_TIMEOUT_MS_DEFAULT        500.0f//超时检测。超过这个时间还没有下降，认为出现卡弹或者其他故障
+#define BULLET_BURST_EXIT_COMPENSATION_MS_DEFAULT 0.0f // 连发：电流上升沿到枪口的实测补偿
 
 /* 对于双发射机构的机器人,将下面的数据封装成结构体即可,生成两份shoot应用实例 */
 static DJIMotorInstance *friction_l, *friction_r, *loader; // 拨盘电机
@@ -86,14 +87,23 @@ static void BulletDetectUpdate(void)
     const float left_current_delta = left_current - bullet_detect.left_baseline_current;
     const float right_current_delta = right_current - bullet_detect.right_baseline_current;
     if (bullet_detect.state == BULLET_DETECT_WAIT_RISE) {
-        if (left_current_delta >= BULLET_CURRENT_RISE_DELTA_DEFAULT &&
-            right_current_delta >= BULLET_CURRENT_RISE_DELTA_DEFAULT) {
+        if (left_current_delta >= BULLET_CURRENT_RISE_DELTA_DEFAULT ) {
             if (bullet_detect.rise_candidate_time_ms == 0.0f) {
                 bullet_detect.rise_candidate_time_ms = now_ms;
             }
             if (now_ms - bullet_detect.rise_candidate_time_ms >= BULLET_RISE_CONFIRM_MS_DEFAULT) {
-                bullet_detect.recover_candidate_time_ms = 0.0f;
-                bullet_detect.state = BULLET_DETECT_WAIT_RECOVER;
+                if (bullet_detect.loader_mode == LOAD_BURSTFIRE) {
+                    // 连发时电流脉冲可能连续重叠，不能等待恢复。首发延时以上升沿为事件终点，再加上“上升沿到枪口”的标定补偿
+                    burst_fire_delay_ms = bullet_detect.rise_candidate_time_ms -
+                                          bullet_detect.trigger_time_ms +
+                                          BULLET_BURST_EXIT_COMPENSATION_MS_DEFAULT;
+                    single_fire_delay_ms = 0;
+                    VisionSetFireDelay(single_fire_delay_ms, burst_fire_delay_ms);
+                    BulletDetectReset();
+                } else {
+                    bullet_detect.recover_candidate_time_ms = 0.0f;
+                    bullet_detect.state = BULLET_DETECT_WAIT_RECOVER;
+                }
             }
         } else {
             bullet_detect.rise_candidate_time_ms = 0.0f;
@@ -101,8 +111,7 @@ static void BulletDetectUpdate(void)
         return;
     }
 
-    if (left_current_delta <= BULLET_CURRENT_RECOVER_DELTA_DEFAULT &&
-        right_current_delta <= BULLET_CURRENT_RECOVER_DELTA_DEFAULT) {
+    if (left_current_delta <= BULLET_CURRENT_RECOVER_DELTA_DEFAULT ) {
         if (bullet_detect.recover_candidate_time_ms == 0.0f) {
             bullet_detect.recover_candidate_time_ms = now_ms;
         }
@@ -111,8 +120,7 @@ static void BulletDetectUpdate(void)
                                    bullet_detect.trigger_time_ms;
             if (bullet_detect.loader_mode == LOAD_1_BULLET) {
                 single_fire_delay_ms = delay_ms;
-            } else {
-                burst_fire_delay_ms = delay_ms;
+                burst_fire_delay_ms = 0;
             }
             VisionSetFireDelay(single_fire_delay_ms, burst_fire_delay_ms);
             BulletDetectReset();
@@ -327,6 +335,7 @@ void ShootTask()
     if (hibernate_time + dead_time > DWT_GetTimeline_ms())
         return;
     static uint8_t single_shot_lock = 0;
+    float last_friction_speed = friction_l->measure.speed_rad_per_second;
     // 若不在休眠状态,根据robotCMD传来的控制模式进行拨盘电机参考值设定和模式切换
     switch (shoot_cmd_recv.loader_mode)
     {
@@ -340,13 +349,16 @@ void ShootTask()
     case LOAD_1_BULLET:           // 激活能量机关/干扰对方用,英雄用
         if (single_shot_lock == 0)
         {
-            DJIMotorLoopType(loader, ANGLE_LOOP);                              // 切换到角度环
-            DJIMotorSetRef(loader, loader->measure.total_angle + ONE_BULLET_DELTA_ANGLE * DEGREE_2_RAD * REDUCTION_RATIO_LOADER); // 控制量增加一发弹丸的角度(total_angle已rad)
+         //   DJIMotorLoopType(loader, ANGLE_LOOP);                              // 切换到角度环
+          //  DJIMotorSetRef(loader, loader->measure.total_angle + ONE_BULLET_DELTA_ANGLE * DEGREE_2_RAD * REDUCTION_RATIO_LOADER); // 控制量增加一发弹丸的角度(total_angle已rad)
+            DJIMotorLoopType(loader, SPEED_LOOP);
+            DJIMotorSetRef(loader, 45);
             hibernate_time = DWT_GetTimeline_ms();                                              // 记录触发指令的时间
             dead_time = 150;// 完成1发弹丸发射的时间
-            single_shot_lock = 1;  //执行一次后立刻上锁
+          if (friction_l->measure.speed_rad_per_second - last_friction_speed < -25) {
+              single_shot_lock = 1;
+          } //执行一次后立刻上锁
         }
-
         break;
         // 二连发
     case LOAD_2_BULLET:
