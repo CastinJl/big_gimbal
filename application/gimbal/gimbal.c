@@ -181,7 +181,7 @@ void GimbalInit() {
             .motor_reverse_flag = MOTOR_DIRECTION_NORMAL,
         },
         .motor_type = DM4310,
-        .DM_P_MAX = 12.5f,
+        .DM_P_MAX = 3.14159f,
         .DM_V_MAX = 30,
         .DM_T_MAX = 10
     };

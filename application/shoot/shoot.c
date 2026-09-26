@@ -353,9 +353,9 @@ void ShootTask()
           //  DJIMotorSetRef(loader, loader->measure.total_angle + ONE_BULLET_DELTA_ANGLE * DEGREE_2_RAD * REDUCTION_RATIO_LOADER); // 控制量增加一发弹丸的角度(total_angle已rad)
             DJIMotorLoopType(loader, SPEED_LOOP);
             DJIMotorSetRef(loader, 45);
-            hibernate_time = DWT_GetTimeline_ms();                                              // 记录触发指令的时间
-            dead_time = 150;// 完成1发弹丸发射的时间
-          if (friction_l->measure.speed_rad_per_second - last_friction_speed < -25) {
+         //   hibernate_time = DWT_GetTimeline_ms();                                              // 记录触发指令的时间
+          //  dead_time = 150;// 完成1发弹丸发射的时间
+          if (friction_l->measure.speed_rad_per_second  < 670-25) {
               single_shot_lock = 1;
           } //执行一次后立刻上锁
         }
