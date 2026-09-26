@@ -22,8 +22,7 @@ typedef struct {
     float trigger_time_ms;//起始时间
     float rise_candidate_time_ms;
     float recover_candidate_time_ms;
-    float left_baseline_current;
-    float right_baseline_current;
+    float baseline_speed;
 } Bullet_Detect_State_s;
 /**
  * @brief 发射初始化,会被RobotInit()调用

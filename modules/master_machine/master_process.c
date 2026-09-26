@@ -34,10 +34,10 @@ void VisionSetAltitude(float yaw, float pitch,float roll)
     send_data.roll = roll;
 }
 
-void VisionSetFireDelay(float single_fire_delay_ms, float burst_fire_delay_ms)
+void VisionSetFireDelay(float fire_delay_ms)
 {
-    send_data.single_fire_delay_ms = single_fire_delay_ms;
-    send_data.burst_fire_delay_ms = burst_fire_delay_ms;
+    send_data.fire_delay_ms = fire_delay_ms;
+
 }
 
 /**
@@ -165,6 +165,7 @@ void VisionSend()
     // send_data.mode = 3;
     //    VisionSetFlag(data->detect_color);
     //    VisionSetAim(data->aim_x,data->aim_y,data->aim_z);
+    send_data.empty2 = 0;
     send_data.checksum = crc_8(&send_data.header,sizeof(send_buffer)-2);
 
     memcpy(send_buffer,&send_data,24/*sizeof(send_data)*/);

@@ -37,8 +37,7 @@ static HeatControl_t heat_control;
 float shoot_speed;
 float ref_speed = 1000.0f,fan_speed = 12.0f,fan_time=50;
 static Bullet_Detect_State_s bullet_detect;
-static float single_fire_delay_ms;
-static float burst_fire_delay_ms;
+static float fire_delay_ms;
 
 //保护函数
 static void BulletDetectReset(void)
@@ -47,88 +46,72 @@ static void BulletDetectReset(void)
     bullet_detect.rise_candidate_time_ms = 0.0f;
     bullet_detect.recover_candidate_time_ms = 0.0f;
 }
-
-static void BulletDetectUpdate(void)
-{
+static void BulletDetectUpdate(void) {
     static uint8_t trigger_latched;
     const float now_ms = DWT_GetTimeline_ms();
-    const float left_current = fabsf((float)friction_l->measure.real_current);
-    const float right_current = fabsf((float)friction_r->measure.real_current);
 
+    // 取左右轮电流的平均值
+    const float speed = (fabsf((float)friction_l->measure.speed_rad_per_second) +
+                               fabsf((float)friction_r->measure.speed_rad_per_second)) * 0.5f;
+
+    // 1. 上升沿触发检测启动
     if (shoot_cmd_recv.vision_fire_trigger && !trigger_latched &&
         shoot_cmd_recv.friction_mode == FRICTION_ON &&
         (shoot_cmd_recv.loader_mode == LOAD_1_BULLET ||
-         shoot_cmd_recv.loader_mode == LOAD_BURSTFIRE)) {
+         shoot_cmd_recv.loader_mode == LOAD_BURSTFIRE ||
+         shoot_cmd_recv.loader_mode == LOAD_2_BULLET)) {
+
         bullet_detect.state = BULLET_DETECT_WAIT_RISE;
         bullet_detect.loader_mode = shoot_cmd_recv.loader_mode;
         bullet_detect.trigger_time_ms = now_ms;
         bullet_detect.rise_candidate_time_ms = 0.0f;
-        bullet_detect.recover_candidate_time_ms = 0.0f;
-        bullet_detect.left_baseline_current = left_current;
-        bullet_detect.right_baseline_current = right_current;
-        if (bullet_detect.loader_mode == LOAD_1_BULLET) {
-            single_fire_delay_ms = 0.0f;
-        } else {
-            burst_fire_delay_ms = 0.0f;
-        }
-        VisionSetFireDelay(single_fire_delay_ms, burst_fire_delay_ms);
+        bullet_detect.baseline_speed = speed;
     }
     trigger_latched = shoot_cmd_recv.vision_fire_trigger;
 
+    // 空闲状态直接退出
     if (bullet_detect.state == BULLET_DETECT_IDLE) {
         return;
     }
-    if (now_ms - bullet_detect.trigger_time_ms > BULLET_DETECT_TIMEOUT_MS_DEFAULT ||
-        shoot_cmd_recv.friction_mode != FRICTION_ON) {
+
+    // 2. 超时与异常保护
+    if ((now_ms - bullet_detect.trigger_time_ms > BULLET_DETECT_TIMEOUT_MS_DEFAULT) ||
+        (shoot_cmd_recv.friction_mode != FRICTION_ON)) {
         BulletDetectReset();
         return;
     }
 
-    const float left_current_delta = left_current - bullet_detect.left_baseline_current;
-    const float right_current_delta = right_current - bullet_detect.right_baseline_current;
+    const float speed_delta = speed - bullet_detect.baseline_speed;
+
+    // 3. 上升沿确认逻辑（修复状态机）
     if (bullet_detect.state == BULLET_DETECT_WAIT_RISE) {
-        if (left_current_delta >= BULLET_CURRENT_RISE_DELTA_DEFAULT ) {
+        if (speed_delta <= -25) {
+            // 首次越过阈值，记录候选时间
             if (bullet_detect.rise_candidate_time_ms == 0.0f) {
                 bullet_detect.rise_candidate_time_ms = now_ms;
             }
+            // 持续超过阈值达到确认时间，判定发弹成功
             if (now_ms - bullet_detect.rise_candidate_time_ms >= BULLET_RISE_CONFIRM_MS_DEFAULT) {
-                if (bullet_detect.loader_mode == LOAD_BURSTFIRE) {
-                    // 连发时电流脉冲可能连续重叠，不能等待恢复。首发延时以上升沿为事件终点，再加上“上升沿到枪口”的标定补偿
-                    burst_fire_delay_ms = bullet_detect.rise_candidate_time_ms -
-                                          bullet_detect.trigger_time_ms +
-                                          BULLET_BURST_EXIT_COMPENSATION_MS_DEFAULT;
-                    single_fire_delay_ms = 0;
-                    VisionSetFireDelay(single_fire_delay_ms, burst_fire_delay_ms);
-                    BulletDetectReset();
-                } else {
-                    bullet_detect.recover_candidate_time_ms = 0.0f;
-                    bullet_detect.state = BULLET_DETECT_WAIT_RECOVER;
+                float measured_delay = bullet_detect.rise_candidate_time_ms -
+                                      bullet_detect.trigger_time_ms +
+                                      BULLET_BURST_EXIT_COMPENSATION_MS_DEFAULT;
+
+                // 建议加入合理性范围校验（如 10ms ~ 150ms 之间才有效）
+                if (measured_delay > 5.0f && measured_delay < 200.0f) {
+                    // 指数平滑滤波更新
+                    fire_delay_ms = fire_delay_ms * 0.7f + measured_delay * 0.3f;
+                    VisionSetFireDelay(fire_delay_ms);
                 }
+
+                BulletDetectReset();
             }
         } else {
+            // 中途掉下阈值则重置计时（滤波防抖）
             bullet_detect.rise_candidate_time_ms = 0.0f;
         }
-        return;
-    }
-
-    if (left_current_delta <= BULLET_CURRENT_RECOVER_DELTA_DEFAULT ) {
-        if (bullet_detect.recover_candidate_time_ms == 0.0f) {
-            bullet_detect.recover_candidate_time_ms = now_ms;
-        }
-        if (now_ms - bullet_detect.recover_candidate_time_ms >= BULLET_RECOVER_CONFIRM_MS_DEFAULT) {
-            const float delay_ms = bullet_detect.recover_candidate_time_ms -
-                                   bullet_detect.trigger_time_ms;
-            if (bullet_detect.loader_mode == LOAD_1_BULLET) {
-                single_fire_delay_ms = delay_ms;
-                burst_fire_delay_ms = 0;
-            }
-            VisionSetFireDelay(single_fire_delay_ms, burst_fire_delay_ms);
-            BulletDetectReset();
-        }
-    } else {
-        bullet_detect.recover_candidate_time_ms = 0.0f;
     }
 }
+
 
 
 void ShootInit()
@@ -357,6 +340,7 @@ void ShootTask()
           //  dead_time = 150;// 完成1发弹丸发射的时间
           if (friction_l->measure.speed_rad_per_second  < 670-25) {
               single_shot_lock = 1;
+              DJIMotorSetRef(loader,0);
           } //执行一次后立刻上锁
         }
         break;
