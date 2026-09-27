@@ -335,7 +335,12 @@ static void RemoteControlSet() {
         shoot_cmd_send.friction_mode = FRICTION_OFF;
         chassis_cmd_send.friction_mode = FRICTION_OFF;
     }
+    if (switch_is_up(rc_data[TEMP].rc.switch_left)) {
 
+        shoot_cmd_send.friction_mode = FRICTION_ON;
+        chassis_cmd_send.friction_mode = FRICTION_ON;
+
+    }
 
     // 拨弹控制,遥控器固定为一种拨弹模式,可自行选择
     if (rc_data[TEMP].rc.dial < -500){//

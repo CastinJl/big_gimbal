@@ -85,7 +85,7 @@ static void BulletDetectUpdate(void) {
 
     // 3. 上升沿确认逻辑（修复状态机）
     if (bullet_detect.state == BULLET_DETECT_WAIT_RISE) {
-        if (speed_delta <= -25) {
+        if (speed <= 670-25) {
             // 首次越过阈值，记录候选时间
             if (bullet_detect.rise_candidate_time_ms == 0.0f) {
                 bullet_detect.rise_candidate_time_ms = now_ms;
@@ -335,7 +335,7 @@ void ShootTask()
          //   DJIMotorLoopType(loader, ANGLE_LOOP);                              // 切换到角度环
           //  DJIMotorSetRef(loader, loader->measure.total_angle + ONE_BULLET_DELTA_ANGLE * DEGREE_2_RAD * REDUCTION_RATIO_LOADER); // 控制量增加一发弹丸的角度(total_angle已rad)
             DJIMotorLoopType(loader, SPEED_LOOP);
-            DJIMotorSetRef(loader, 45);
+            DJIMotorSetRef(loader, 60);
          //   hibernate_time = DWT_GetTimeline_ms();                                              // 记录触发指令的时间
           //  dead_time = 150;// 完成1发弹丸发射的时间
           if (friction_l->measure.speed_rad_per_second  < 670-25) {
