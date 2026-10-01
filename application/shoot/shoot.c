@@ -242,6 +242,7 @@ void ShootTask()
     current_loader = loader->measure.real_current;
     speed_loader = loader->measure.speed_rad_per_second;
     BulletDetectUpdate();
+    VisionSetBulletSpeed(shoot_cmd_recv.bullet_speed);
 
     // 对shoot mode等于SHOOT_STOP的情况特殊处理,直接停止所有电机(紧急停止)
     if (shoot_cmd_recv.shoot_mode == SHOOT_OFF)

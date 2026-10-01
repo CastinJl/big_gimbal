@@ -71,7 +71,7 @@ typedef __packed struct {
     float pitch; // rad
     float yaw;   // rad
     float fire_delay_ms; // 视觉开火指令到单发弹丸离开摩擦轮的延时
-  float empty2;//占位符，无意义
+  float bullet_speed;//弹速
     uint8_t checksum;
     uint8_t tail;//0x0d
 } SendPacket_t;
@@ -142,5 +142,5 @@ void VisionSetAltitude(float yaw, float pitch,float roll);
  * @brief 更新发送给视觉的发弹延时，单位 ms；0 表示等待检测或未检测到弹丸
  */
 void VisionSetFireDelay(float single_fire_delay_ms);
-
+void VisionSetBulletSpeed(float bullet_speed);
 #endif // !MASTER_PROCESS_H

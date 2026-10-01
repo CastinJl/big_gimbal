@@ -934,6 +934,7 @@ void RobotCMDTask() {
     shoot_cmd_send.heat_cool = chassis_fetch_data.cooling_speed;
     shoot_cmd_send.robot_level = chassis_fetch_data.robot_level;
     shoot_cmd_send.heat = chassis_fetch_data.heat;
+    shoot_cmd_send.bullet_speed = chassis_fetch_data.bullet_speed;
     if(referee_data->GameRobotState.power_management_chassis_output == 0){
         // chassis_cmd_send.chassis_mode = CHASSIS_ZERO_FORCE;
     }

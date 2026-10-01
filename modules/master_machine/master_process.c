@@ -39,7 +39,11 @@ void VisionSetFireDelay(float fire_delay_ms)
     send_data.fire_delay_ms = fire_delay_ms;
 
 }
+void VisionSetBulletSpeed(float bullet_speed)
+{
+    send_data.bullet_speed = bullet_speed;
 
+}
 /**
  * @brief 绂荤嚎鍥炶皟鍑芥暟,灏嗗湪daemon.c涓daemon task璋冪敤
  * @attention 鐢变簬HAL搴撶殑璁捐闂,涓插彛寮€鍚疍MA鎺ユ敹涔嬪悗鍚屾椂鍙戦€佹湁姒傜巼鍑虹幇__HAL_LOCK()瀵艰嚧鐨勬閿?浣垮緱鏃犳硶
@@ -165,7 +169,7 @@ void VisionSend()
     // send_data.mode = 3;
     //    VisionSetFlag(data->detect_color);
     //    VisionSetAim(data->aim_x,data->aim_y,data->aim_z);
-    send_data.empty2 = 0;
+    send_data.bullet_speed = ;
     send_data.checksum = crc_8(&send_data.header,sizeof(send_buffer)-2);
 
     memcpy(send_buffer,&send_data,24/*sizeof(send_data)*/);
