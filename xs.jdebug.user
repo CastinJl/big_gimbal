@@ -1,33 +1,25 @@
 
 
-GraphedExpression="yaw_current", Color=#769dda, Show=0
+GraphedExpression="(vision_recv_data)->pitch", Color=#e56a6f
+GraphedExpression="(gimbal_IMU_data)->Pitch", Color=#35792b
+OpenDocument="stm32f4xx_hal_can.c", FilePath="D:/RM/Embedded/Infantry_SteerWheel_26_Gimbal_C_Board_Framework/Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_can.c", Line=1288
+OpenDocument="ins_task.c", FilePath="D:/RM/Embedded/Infantry_SteerWheel_26_Gimbal_C_Board_Framework/modules/imu/ins_task.c", Line=224
 OpenDocument="tasks.c", FilePath="D:/RM/Embedded/Infantry_SteerWheel_26_Gimbal_C_Board_Framework/Middlewares/Third_Party/FreeRTOS/Source/tasks.c", Line=3642
 OpenDocument="stm32f4xx_hal_tim.c", FilePath="D:/RM/Embedded/Infantry_SteerWheel_26_Gimbal_C_Board_Framework/Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_tim.c", Line=3843
-OpenDocument="pitch.csv", FilePath="C:/Users/a1511/Desktop/csv/pitch.csv", Line=0
 OpenDocument="main.c", FilePath="D:/RM/Embedded/Infantry_SteerWheel_26_Gimbal_C_Board_Framework/Src/main.c", Line=71
-OpenDocument="PITCH4-15hz0.5-11.csv", FilePath="C:/Users/a1511/Desktop/csv/PITCH4-15hz0.5-11.csv", Line=0
 OpenDocument="bsp_dwt.c", FilePath="D:/RM/Embedded/Infantry_SteerWheel_26_Gimbal_C_Board_Framework/bsp/dwt/bsp_dwt.c", Line=104
 OpenDocument="robot_def.h", FilePath="D:/RM/Embedded/Infantry_SteerWheel_26_Gimbal_C_Board_Framework/application/robot_def.h", Line=228
 OpenDocument="stm32f4xx_hal_spi.c", FilePath="D:/RM/Embedded/Infantry_SteerWheel_26_Gimbal_C_Board_Framework/Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_spi.c", Line=1126
-OpenDocument="PITCH25HZ0.7.csv", FilePath="C:/Users/a1511/Desktop/csv/PITCH25HZ0.7.csv", Line=0
-OpenDocument="YAW15HZ2.0.csv", FilePath="C:/Users/a1511/Desktop/csv/YAW15HZ2.0.csv", Line=0
-OpenDocument="yaw1.0111.csv", FilePath="C:/Users/a1511/Desktop/csv/yaw1.0111.csv", Line=0
-OpenDocument="PITCH22HZ222.csv", FilePath="C:/Users/a1511/Desktop/csv/PITCH22HZ222.csv", Line=0
-OpenDocument="yaw2.0222.csv", FilePath="C:/Users/a1511/Desktop/csv/yaw2.0222.csv", Line=0
-OpenDocument="yaw2.0111.csv", FilePath="C:/Users/a1511/Desktop/csv/yaw2.0111.csv", Line=0
-OpenDocument="pitch111.csv", FilePath="C:/Users/a1511/Desktop/csv/pitch111.csv", Line=0
-OpenDocument="pitch222.csv", FilePath="C:/Users/a1511/Desktop/csv/pitch222.csv", Line=0
-OpenDocument="yaw1.0222.csv", FilePath="C:/Users/a1511/Desktop/csv/yaw1.0222.csv", Line=0
 OpenToolbar="Debug", Floating=0, x=0, y=0
-OpenWindow="Disassembly", DockArea=RIGHT, x=0, y=0, w=591, h=232, FilterBarShown=0, TotalValueBarShown=0, ToolBarShown=0
-OpenWindow="Watched Data 1", DockArea=RIGHT, x=0, y=1, w=591, h=298, FilterBarShown=0, TotalValueBarShown=0, ToolBarShown=0
+OpenWindow="Disassembly", DockArea=RIGHT, x=0, y=0, w=591, h=234, FilterBarShown=0, TotalValueBarShown=0, ToolBarShown=0
+OpenWindow="Watched Data 1", DockArea=RIGHT, x=0, y=1, w=591, h=296, FilterBarShown=0, TotalValueBarShown=0, ToolBarShown=0
 OpenWindow="Terminal", DockArea=BOTTOM, x=0, y=0, w=365, h=393, FilterBarShown=0, TotalValueBarShown=0, ToolBarShown=0
 OpenWindow="Data Sampling", DockArea=BOTTOM, x=2, y=0, w=536, h=393, FilterBarShown=0, TotalValueBarShown=0, ToolBarShown=0, VisibleTab=0, UniformSampleSpacing=0
-OpenWindow="Timeline", DockArea=BOTTOM, x=1, y=0, w=1017, h=393, FilterBarShown=0, TotalValueBarShown=0, ToolBarShown=1, DataPaneShown=1, PowerPaneShown=0, CodePaneShown=0, PinCursor="Cursor Movable", TimePerDiv="5 s", TimeStampFormat="Time", DataGraphDrawAsPoints=0, DataGraphLegendShown=1, DataGraphUniformSampleSpacing=0, DataGraphLegendPosition="98;0", DataGraphShowNamesAtCursor=1, PowerGraphDrawAsPoints=0, PowerGraphLegendShown=0, PowerGraphAvgFilterTime=Off, PowerGraphAvgFilterLen=Off, PowerGraphUniformSampleSpacing=0, PowerGraphLegendPosition="821;0", CodeGraphLegendShown=0, CodeGraphLegendPosition="835;0"
+OpenWindow="Timeline", DockArea=BOTTOM, x=1, y=0, w=1017, h=393, FilterBarShown=0, TotalValueBarShown=0, ToolBarShown=1, DataPaneShown=1, PowerPaneShown=0, CodePaneShown=0, PinCursor="Cursor Movable", TimePerDiv="5 s", TimeStampFormat="Time", DataGraphDrawAsPoints=0, DataGraphLegendShown=1, DataGraphUniformSampleSpacing=0, DataGraphLegendPosition="0;0", DataGraphShowNamesAtCursor=1, PowerGraphDrawAsPoints=0, PowerGraphLegendShown=0, PowerGraphAvgFilterTime=Off, PowerGraphAvgFilterLen=Off, PowerGraphUniformSampleSpacing=0, PowerGraphLegendPosition="484;0", CodeGraphLegendShown=0, CodeGraphLegendPosition="498;0"
 OpenWindow="Console", DockArea=LEFT, x=0, y=0, w=360, h=531, FilterBarShown=0, TotalValueBarShown=0, ToolBarShown=0
 SmartViewPlugin="", Page="", Toolbar="Hidden", Window="SmartView 1"
-TableHeader="Data Sampling Table", SortCol="None", SortOrder="ASCENDING", VisibleCols=["Index";"Time";" yaw_current"], ColWidths=[100;100;100]
-TableHeader="Data Sampling Setup", SortCol="Type", SortOrder="DESCENDING", VisibleCols=["Expression";"Type";"Value";"Min";"Max";"Average";"# Changes";"Min. Change";"Max. Change"], ColWidths=[147;100;100;110;102;118;100;110;107]
+TableHeader="Data Sampling Table", SortCol="None", SortOrder="ASCENDING", VisibleCols=["Index";"Time";" (vision_recv_data)->pitch";" (gimbal_IMU_data)->Pitch"], ColWidths=[100;100;100;100]
+TableHeader="Data Sampling Setup", SortCol="Type", SortOrder="DESCENDING", VisibleCols=["Expression";"Type";"Value";"Min";"Max";"Average";"# Changes";"Min. Change";"Max. Change"], ColWidths=[147;100;102;110;102;110;100;126;118]
 TableHeader="Power Sampling", SortCol="None", SortOrder="ASCENDING", VisibleCols=["Index";"Time";"Ch 0"], ColWidths=[100;100;100]
 TableHeader="Watched Data 1", SortCol="Expression", SortOrder="ASCENDING", VisibleCols=["Expression";"Value";"Location";"Refresh"], ColWidths=[212;105;100;153]
 TableHeader="RegisterSelectionDialog", SortCol="None", SortOrder="ASCENDING", VisibleCols=[], ColWidths=[]
