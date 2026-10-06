@@ -116,8 +116,7 @@ void GimbalInit() {
             .angle_feedback_source = OTHER_FEED,
             .speed_feedback_source = OTHER_FEED,
 #if SYS_ID_MODE_ON
-            .outer_loop_type = CURRENT_LOOP,
-            .close_loop_type = CURRENT_LOOP,
+            .loop_type = CURRENT_LOOP,
             .feedforward_flag = FEEDFORWARD_NONE,
 #else
             .loop_type = ANGLE_SPEED_CASCADE,
@@ -167,18 +166,16 @@ void GimbalInit() {
             .angle_feedback_source = OTHER_FEED,
             .speed_feedback_source = OTHER_FEED,
 #if PITCH_SYS_ID_MODE_ON
-            // 灰箱辨识：参考值直接作为力矩，不经过角度/速度 PID。
-            .loop_type = SPEED_LOOP,
 #if PITCH_SYS_ID_GRAVITY_FF
             .feedforward_flag = CURRENT_FEEDFORWARD,
 #else
             .feedforward_flag =  FEEDFORWARD_NONE,
 #endif
 #else
-            .loop_type = ANGLE_SPEED_CASCADE,
             .feedforward_flag = CURRENT_FEEDFORWARD,
 #endif
             .motor_reverse_flag = MOTOR_DIRECTION_NORMAL,
+            .loop_type = ANGLE_SPEED_CASCADE,
         },
         .motor_type = DM4310,
         .DM_P_MAX = 3.14159f,
@@ -234,7 +231,7 @@ void GimbalTask() {
             case GIMBAL_GYRO_MODE: // 后续只保留此模式
             DMMotorEnable(yaw_motor);
             DMMotorEnable(pitch_motor);
-
+#if !(SYS_ID_MODE_ON ||PITCH_SYS_ID_MODE_ON)
             if (gimbal_cmd_recv.auto_aim_mode == 1) {
                 // 视觉自瞄: 用视觉给的 yaw_v/yaw_acc
                 yaw_cmd.ref_pos = gimbal_cmd_recv.yaw;
@@ -266,6 +263,8 @@ void GimbalTask() {
             last_auto_aim_mode = gimbal_cmd_recv.auto_aim_mode;
             last_gimbal_mode = gimbal_cmd_recv.gimbal_mode;
 
+#endif
+
 #if SYS_ID_MODE_ON
             // 辨识输入必须是纯 chirp，不能叠加正常闭环和模型前馈。
             yaw_current = 0.0f;
@@ -273,14 +272,15 @@ void GimbalTask() {
             DMMotorSetRef(yaw_motor, sys_id_target_speed);
             DMMotorSetRef(pitch_motor, 0.0f);
 #elif PITCH_SYS_ID_MODE_ON
-            // pitch 辨识: 开环力矩 chirp, 保留重力补偿; yaw 不给前馈
+            // pitch 辨识:  chirp, 保留重力补偿; yaw 不给前馈
             yaw_current = 0.0f;
             yaw_cmd.ref_pos=0;
             // 开环保护: 角度越限 → 力矩 0
             sys_id_target_speed = (fabsf(gimbal_IMU_data->Pitch) > PITCH_SYS_ID_LIMIT_RAD)
                                       ? 0.0f
                                       : Gimbal_SysID_Generate_Chirp(0.001f);
-            pitch_cmd.ref_vel =sys_id_target_speed;
+            pitch_cmd.ref_pos = sys_id_target_speed;
+            // DMMotorSetRef(pitch_motor, sys_id_target_speed);
 #else
 
             yaw_current = Torque_ff_Yaw(&yaw_cmd);
@@ -304,15 +304,6 @@ void GimbalTask() {
             break;
         }
     }
-    // 根据IMU姿态/pitch电机角度反馈计算出当前配重下的重力矩
-
-    // if (theta>0.4) {//0.6
-    //     pitch_current = 0.1f;
-    //     //gravity_current = 0;
-    // }
-    // else {
-    //     pitch_current = 0.8383*arm_cos_f32(gimbal_IMU_data->Pitch + 1.0106)-0.2;
-    // }
 
         // 设置反馈数据,主要是imu和yaw的ecd
         gimbal_feedback_data.gimbal_imu_data = *gimbal_IMU_data;

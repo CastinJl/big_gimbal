@@ -211,9 +211,8 @@ void DMMotorControl(){
 
         // 计算位置环,只有启用位置环且外层闭环为位置时会计算速度环输出
         if (setting->loop_type & ANGLE_LOOP){
-            if (setting->angle_feedback_source == OTHER_FEED) {
+            if (setting->angle_feedback_source == OTHER_FEED)
                 pid_measure = *motor_controller->other_angle_feedback_ptr;
-            }
             else {
                 pid_measure = measure->position; // MOTOR_FEED,对total angle闭环,防止在边界处出现突跃
             }
@@ -260,7 +259,6 @@ void DMMotorControl(){
         // 电流环前馈
         if (setting->feedforward_flag & CURRENT_FEEDFORWARD)
             control_out += *motor_controller->current_feedforward_ptr;
-
         if (setting->feedback_reverse_flag == FEEDBACK_DIRECTION_REVERSE)
             control_out *= -1;
 

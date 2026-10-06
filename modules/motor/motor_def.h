@@ -73,7 +73,7 @@ typedef enum
 /* 电机控制设置,包括闭环类型,反转标志和反馈来源 */
 typedef struct
 {
-    Closeloop_Type_e loop_type;              // 最外层的闭环,未设置时默认为最高级的闭环
+    Closeloop_Type_e loop_type;              // 闭环类型
     Motor_Reverse_Flag_e motor_reverse_flag;       // 是否反转
     Feedback_Reverse_Flag_e feedback_reverse_flag; // 反馈是否反向
     Feedback_Source_e angle_feedback_source;       // 角度反馈类型

@@ -334,7 +334,9 @@ void DJIMotorControl() {
                 speed_pid_ref = angle_pid_out;
             }
             else {
-                speed_pid_ref = control_ref;
+                speed_pid_ref = motor_controller->speed_ref_ptr != NULL
+                                    ? *motor_controller->speed_ref_ptr
+                                    : control_ref;
             }
 
             if (motor_setting->feedforward_flag & SPEED_FEEDFORWARD)
@@ -404,6 +406,10 @@ void DJIMotorControl() {
 
         // 获取最终输出  此处注意set不要超过int16_t能表达的最大数 +-32767
 
+        if (motor->motor_type == GM6020) {
+            control_out = control_out * GM6020_CURRENT2CMD;
+        }
+
         control_out = float_constrain(control_out,-16384,16384);
         if (motor->lost_flag == 1) {
             //说明触发看门狗了，不再发送消息！防止大疆电机虚弱
@@ -421,8 +427,8 @@ void DJIMotorControl() {
             // 分组填入发送数据
             group = motor->sender_group;
             num = motor->message_num;
-            sender_assignment[group].tx_buff[2 * num] = (uint8_t) (set >> 8);         // 低八位
-            sender_assignment[group].tx_buff[2 * num + 1] = (uint8_t) (set & 0x00ff); // 高八位
+            sender_assignment[group].tx_buff[2 * num] = (uint8_t) (set >> 8);         // 高八位
+            sender_assignment[group].tx_buff[2 * num + 1] = (uint8_t) (set & 0x00ff); // 低八位
 
             // 若该电机处于停止状态,直接将buff置零
             if (motor->stop_flag == MOTOR_STOP)
