@@ -13,9 +13,10 @@
 #define YAW_KU 0.78064207f   // N*m/unit
 #define PITCH_J 0.003f
 #define PITCH_B 0.019479f
-#define PITCH_G 0.08003f
+#define PITCH_G 0.07003f
 #define PITCH_KU 0.21299f
 #define PITCH_TC 0.0876f
+#define PITCH_PHI (-0.2f)
 #define FF_GAIN 1.0f  // 前馈增益，建议 0.85~0.95
 
 typedef struct {

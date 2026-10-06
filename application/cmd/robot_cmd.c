@@ -155,7 +155,7 @@ static void Pitch_Dynamic_Limit_Update() {
     }
     else if (predicted_ecd < PITCH_MIN_ECD) {
         // 预测会撞到下边，反推允许的最小 IMU 目标值
-        float min_allowable_delta = PITCH_MAX_ECD - current_ecd;
+        float min_allowable_delta = PITCH_MIN_ECD - current_ecd;
         gimbal_cmd_send.pitch = current_imu + min_allowable_delta; // 注意符号
     }
 }
