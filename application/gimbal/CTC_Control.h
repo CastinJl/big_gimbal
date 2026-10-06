@@ -34,6 +34,7 @@ typedef struct {
     float eso_z2;
     float eso_z3;
     uint8_t eso_initialized;
+    uint8_t eso_enabled;
 
 }CTC_Controller;
 

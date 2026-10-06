@@ -23,6 +23,9 @@ static float yaw_current = 0;
 
 static float last_auto_aim_mode;
 static uint8_t last_gimbal_mode;
+static uint8_t pid_auto_aim_mode = 1U;
+static Motor_Init_Config_s yaw_config;
+static Motor_Init_Config_s pitch_config;
 CTC_Controller yaw_cmd;
 CTC_Controller pitch_cmd;
 
@@ -77,7 +80,7 @@ void GimbalInit() {
     gimbal_IMU_data = INS_Init(); // IMU先初始化,获取姿态数据指针赋给yaw电机的其他数据来源
     // ref_vel/ref_acc 改由 GimbalTask 本地轨迹生成 + 视觉覆盖填给 yaw_gray_ff, 不再用指针指向视觉字段
     // YAW
-    Motor_Init_Config_s yaw_config = {
+    yaw_config = (Motor_Init_Config_s){
         .can_init_config = {
             .can_handle = &hcan1,
             .tx_id = 0x10, //
@@ -130,7 +133,7 @@ void GimbalInit() {
         .DM_T_MAX = 10
     };
     // PITCH
-    Motor_Init_Config_s pitch_config = {
+    pitch_config = (Motor_Init_Config_s){
         .can_init_config = {
             .can_handle = &hcan2,
             .tx_id = 0x09,  //slave id
@@ -194,6 +197,79 @@ void GimbalInit() {
     gimbal_sub = SubRegister("gimbal_cmd", sizeof(Gimbal_Ctrl_Cmd_s));
 }
 
+/* 普通模式的串级 PID 参数，Yaw/Pitch 及角度环/速度环分别配置。 */
+static Motor_Controller_Init_s normal_yaw_controller_config = {
+    .speed_PID = {
+        .Kp = 1.60f,//并行扭矩量纲起始值(原级联2.1);阻尼,实车重标定
+                  .Ki = 0.0f,
+                  .Kd = 0.0f, //0.005f
+                  .Improve = PID_Integral_Limit | PID_Derivative_On_Measurement | PID_DerivativeFilter,
+                  .IntegralLimit = 5,
+                  .MaxOut = 100, //即输出扭矩TMAX，可通过达妙上位机读取或修改
+                  .Derivative_LPF_RC = 0.0f},
+    .angle_PID = {
+        .Kp = 30.0f,//并行扭矩量纲起始值(原级联30);实车重标定
+                   .Ki = 0.0f,//0
+                   .Kd = 0.0f,//0.0f,//0.005f
+                   .DeadBand = 0.0f,
+                   .Improve = PID_Trapezoid_Intergral | PID_Integral_Limit | PID_Derivative_On_Measurement,
+                   .IntegralLimit = 50,
+                   .MaxOut = 100,},
+};
+static Motor_Controller_Init_s normal_pitch_controller_config = {
+    .speed_PID = {
+                   .Kp = 1.0f,//并行扭矩量纲起始值(原级联2);阻尼,实车重标定
+                   .Ki = 0.0f,
+                   .Kd = 0.0f,
+                   .Improve = PID_Integral_Limit | PID_Derivative_On_Measurement,
+                   .IntegralLimit = 5,
+                   .MaxOut = 10,},
+    .angle_PID = {
+                 .Kp = 27.0f,//并行扭矩量纲起始值(原级联50);实车重标定
+                 .Ki = 0.0f,
+                 .Kd = 0.0f,
+                 .Improve = PID_Trapezoid_Intergral | PID_Integral_Limit | PID_Derivative_On_Measurement,
+                 .IntegralLimit = 0.3f,
+                 .MaxOut = 5,},
+};
+
+static void GimbalUpdatePIDConfig(uint8_t auto_aim_enabled)
+{
+    if (pid_auto_aim_mode == auto_aim_enabled)
+        return;
+
+    PID_Init_Config_s *yaw_angle_config;
+    PID_Init_Config_s *yaw_speed_config;
+    PID_Init_Config_s *yaw_current_config;
+    PID_Init_Config_s *pitch_angle_config;
+    PID_Init_Config_s *pitch_speed_config;
+    PID_Init_Config_s *pitch_current_config;
+
+    if (auto_aim_enabled) {
+        yaw_angle_config = &yaw_config.controller_param_init_config.angle_PID;
+        yaw_speed_config = &yaw_config.controller_param_init_config.speed_PID;
+        yaw_current_config = &yaw_config.controller_param_init_config.current_PID;
+        pitch_angle_config = &pitch_config.controller_param_init_config.angle_PID;
+        pitch_speed_config = &pitch_config.controller_param_init_config.speed_PID;
+        pitch_current_config = &pitch_config.controller_param_init_config.current_PID;
+    } else {
+        yaw_angle_config = &normal_yaw_controller_config.angle_PID;
+        yaw_speed_config = &normal_yaw_controller_config.speed_PID;
+        yaw_current_config = &normal_yaw_controller_config.current_PID;
+        pitch_angle_config = &normal_pitch_controller_config.angle_PID;
+        pitch_speed_config = &normal_pitch_controller_config.speed_PID;
+        pitch_current_config = &normal_pitch_controller_config.current_PID;
+    }
+
+    PIDInit(&yaw_motor->motor_controller.current_PID, yaw_current_config);
+    PIDInit(&yaw_motor->motor_controller.angle_PID, yaw_angle_config);
+    PIDInit(&yaw_motor->motor_controller.speed_PID, yaw_speed_config);
+    PIDInit(&pitch_motor->motor_controller.current_PID, pitch_current_config);
+    PIDInit(&pitch_motor->motor_controller.angle_PID, pitch_angle_config);
+    PIDInit(&pitch_motor->motor_controller.speed_PID, pitch_speed_config);
+    pid_auto_aim_mode = auto_aim_enabled;
+}
+
 
 /* 机器人云台控制核心任务,后续考虑只保留IMU控制,不再需要电机的反馈 */
 void GimbalTask() {
@@ -202,6 +278,7 @@ void GimbalTask() {
     // 获取云台控制数据
     // 后续增加未收到数据的处理
     SubGetMessage(gimbal_sub, &gimbal_cmd_recv);
+    GimbalUpdatePIDConfig(gimbal_cmd_recv.auto_aim_mode == 1U);
     if (gimbal_cmd_recv.DMMOTOR_Error_Clear_flag == 1) {
         //DMMotorClearError(yaw_motor);
         DMMotorClearError(pitch_motor);
@@ -214,6 +291,7 @@ void GimbalTask() {
             case GIMBAL_ZERO_FORCE:
             DMMotorStop(yaw_motor);
             DMMotorStop(pitch_motor);
+            pitch_cmd.eso_enabled = 0U;
             yaw_motor->motor_controller.speed_PID.ITerm = 0.0f;
             yaw_motor->motor_controller.speed_PID.Iout = 0.0f;
             pitch_motor->motor_controller.speed_PID.ITerm = 0.0f;
@@ -233,6 +311,7 @@ void GimbalTask() {
             DMMotorEnable(pitch_motor);
 #if !(SYS_ID_MODE_ON ||PITCH_SYS_ID_MODE_ON)
             if (gimbal_cmd_recv.auto_aim_mode == 1) {
+                pitch_cmd.eso_enabled = 1U;
                 // 视觉自瞄: 用视觉给的 yaw_v/yaw_acc
                 yaw_cmd.ref_pos = gimbal_cmd_recv.yaw;
                 yaw_cmd.ref_vel = gimbal_cmd_recv.vision_yaw_speed_ff;
@@ -244,6 +323,7 @@ void GimbalTask() {
                 DMMotorLoopType(yaw_motor, ANGLE_SPEED_PARALLEL);
                 DMMotorLoopType(pitch_motor, ANGLE_SPEED_PARALLEL);
             } else {
+                pitch_cmd.eso_enabled = 0U;
                 const float DEADZONE = 0.01f;
                 static uint8_t last_had_input_flag = 0;
                 uint8_t had_input_flag = (fabsf(gimbal_cmd_recv.yaw_speed) > DEADZONE || fabsf(gimbal_cmd_recv.pitch_speed) > DEADZONE);

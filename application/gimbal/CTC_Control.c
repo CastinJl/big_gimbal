@@ -67,7 +67,7 @@ void CTC_Pitch_Control(uint8_t is_speed_mode, float speed_cmd, uint8_t need_upda
         pitch_cmd.ref_vel = speed_cmd;
         pitch_cmd.ref_acc = 0.0f;
     }else {
-        DMMotorLoopType(pitch_motor, ANGLE_SPEED_CASCADE);
+        DMMotorLoopType(pitch_motor,ANGLE_SPEED_CASCADE);
         if (need_update) pitch_cmd.ref_pos = gimbal_IMU_data->Pitch;
         pitch_cmd.ref_vel = 0.0f;
         pitch_cmd.ref_acc = 0.0f;
@@ -101,8 +101,16 @@ static void ESO_pitch(CTC_Controller *control) {
     float tau_eso;
     float tau_input;
 
-    if (control == NULL || gimbal_IMU_data == NULL || pitch_motor == NULL ||
-        w0 <= 0.0f) {
+    if (control == NULL) {
+        return;
+    }
+
+    if (control->eso_enabled == 0U || gimbal_IMU_data == NULL ||
+        pitch_motor == NULL || w0 <= 0.0f) {
+        control->eso_initialized = 0U;
+        control->eso_z1 = 0.0f;
+        control->eso_z2 = 0.0f;
+        control->eso_z3 = 0.0f;
         return;
     }
 
