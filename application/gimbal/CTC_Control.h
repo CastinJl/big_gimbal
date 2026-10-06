@@ -29,6 +29,11 @@ typedef struct {
     float eso_gain;                 //eso增益
     float eso_limit;                //eso输出限幅
 
+    float eso_z1;
+    float eso_z2;
+    float eso_z3;
+    uint8_t eso_initialized;
+
 }CTC_Controller;
 
 float Torque_ff_Yaw(CTC_Controller *ff);

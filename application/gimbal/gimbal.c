@@ -139,7 +139,7 @@ void GimbalInit() {
         },
         .controller_param_init_config = {
             .angle_PID = {
-                .Kp = 15.0f,//并行扭矩量纲起始值(原级联50);实车重标定
+                .Kp = 27.0f,//并行扭矩量纲起始值(原级联50);实车重标定
                 .Ki = 0.0f,
                 .Kd = 0.0f,
                 .Improve = PID_Trapezoid_Intergral | PID_Integral_Limit | PID_Derivative_On_Measurement,
@@ -148,8 +148,8 @@ void GimbalInit() {
 
             },
             .speed_PID = {
-                .Kp = 1.20f,//并行扭矩量纲起始值(原级联2);阻尼,实车重标定
-                .Ki = 0.0f,
+                .Kp = 4.0f,//并行扭矩量纲起始值(原级联2);阻尼,实车重标定
+                .Ki = 1.0f,
                 .Kd = 0.0f,
                 .Improve = PID_Integral_Limit | PID_Derivative_On_Measurement,
                 .IntegralLimit = 5,
@@ -185,6 +185,10 @@ void GimbalInit() {
         .DM_V_MAX = 30,
         .DM_T_MAX = 10
     };
+    pitch_cmd.eso_initialized=0;
+    pitch_cmd.eso_bandwidth = 27.0f;
+    pitch_cmd.eso_gain=0.1f;
+    pitch_cmd.eso_limit=0.8f;
     // 电机对total_angle闭环,上电时为零,会保持静止,收到遥控器数据再动
     yaw_motor = DMMotorInit(&yaw_config);
     pitch_motor = DMMotorInit(&pitch_config);

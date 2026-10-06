@@ -169,7 +169,7 @@ void VisionSend()
     // send_data.mode = 3;
     //    VisionSetFlag(data->detect_color);
     //    VisionSetAim(data->aim_x,data->aim_y,data->aim_z);
-    send_data.bullet_speed = ;
+  //  send_data.bullet_speed = ;
     send_data.checksum = crc_8(&send_data.header,sizeof(send_buffer)-2);
 
     memcpy(send_buffer,&send_data,24/*sizeof(send_data)*/);
