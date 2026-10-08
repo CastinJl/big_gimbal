@@ -23,7 +23,7 @@ static float yaw_current = 0;
 
 static float last_auto_aim_mode;
 static uint8_t last_gimbal_mode;
-static float last_pid_auto_aim_mode = 0;
+static float last_pid_auto_aim_mode = -1;//为了防止上电不切换pid
 static Motor_Init_Config_s yaw_config;
 static Motor_Init_Config_s pitch_config;
 
@@ -203,11 +203,13 @@ static Motor_Controller_Init_s yaw_controller_config = {
         .Kp = 30.0f,//并行扭矩量纲起始值(原级联2.1);阻尼,实车重标定
         .Ki = 0.0f,
         .Kd = 0.0f, //0.005f
+        .MaxOut = 100,
     },
     .speed_PID = {
         .Kp = 1.60f,//并行扭矩量纲起始值(原级联30);实车重标定
         .Ki = 0.0f,//0
         .Kd = 0.0f,//0.0f,//0.005f
+        .MaxOut = 100,
        },
 };
 
@@ -216,11 +218,13 @@ static Motor_Controller_Init_s pitch_controller_config = {
         .Kp = 27.0f,//并行扭矩量纲起始值(原级联2);阻尼,实车重标定
         .Ki = 0.0f,
         .Kd = 0.0f,
+        .MaxOut = 5,
     },
     .speed_PID = {
         .Kp = 1.0f,//并行扭矩量纲起始值(原级联50);实车重标定
         .Ki = 0.0f,
         .Kd = 0.0f,
+        .MaxOut = 10
      },
 };
 

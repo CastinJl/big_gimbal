@@ -91,14 +91,16 @@ uint8_t CTC_Pitch_Limit(float speed_cmd, float *safe_angle) {
 
     if (ctc_feedback.pitch_motor_lost_flag) return 0;
 
-    if (encoder >= PITCH_MAX_ECD && speed_cmd > 0.01f) {
-        float max_allow_delta = PITCH_MAX_ECD - encoder;
-        *safe_angle = imu + max_allow_delta;
+    if (encoder >= PITCH_MAX_ECD) {
+        *safe_angle = imu + PITCH_MAX_ECD - encoder ;
+        if (speed_cmd<-0.01f) return 0;
+
         return 1;
     }
-    if (encoder < PITCH_MIN_ECD && speed_cmd < -0.01f) {
-        float min_allow_delta = PITCH_MIN_ECD - encoder;
-        *safe_angle = imu + min_allow_delta;
+    if (encoder < PITCH_MIN_ECD) {
+        *safe_angle = imu + PITCH_MIN_ECD - encoder;
+        if (speed_cmd> 0.01f) return 0;
+
         return 1;
     }
     return 0;
