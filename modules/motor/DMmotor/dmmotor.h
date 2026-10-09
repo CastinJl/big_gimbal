@@ -8,13 +8,6 @@
 
 #define DM_MOTOR_CNT 6
 
-// #define DM_P_MIN  (-12.5)//(-3.1415926f)
-// #define DM_P_MAX  12.5//3.1415926f
-// #define DM_V_MIN  (-30.0f)
-// #define DM_V_MAX  30.0f
-// #define DM_T_MIN  (-10.0f)
-// #define DM_T_MAX   10.0f
-
 typedef struct
 {
     uint8_t id;
@@ -40,21 +33,6 @@ typedef struct
 }DMMotor_Send_s;
 typedef struct
 {
-    // DM_Motor_Measure_s measure;
-    // Motor_Control_Setting_s motor_settings;
-    // Motor_Controller_s motor_controller;//电机控制器
-    //
-    // CANInstance *motor_can_instance;//电机can实例
-    //
-    // Motor_Type_e motor_type;//电机类型
-    // Motor_Working_Type_e stop_flag;
-    //
-    // DaemonInstance* motor_daemon;
-    // uint32_t lost_cnt;
-    // float DM_T_MAX;
-    // float DM_V_MAX;
-    // float DM_P_MAX;
-
     DM_Motor_Measure_s measure;//反馈
 
     Motor_Control_Setting_s motor_settings;//闭环设置

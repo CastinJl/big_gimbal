@@ -87,12 +87,8 @@ static void DMMotorDecode(CANInstance *motor_can)
 static void DMMotorLostCallback(void *motor_ptr)
 {
     DMMotorInstance *motor = (DMMotorInstance *)motor_ptr;
-    // uint16_t can_bus = motor->motor_can_instance->can_handle == &hcan1 ? 1 : 2;
-    // LOGWARNING("[dm_motor] Motor lost, can bus [%d] , id [%d]", can_bus, motor->motor_can_instance->tx_id);
     motor->lost_flag=1;
-    // DMMotorEnable(motor);
-    // DMMotorSetMode(DM_CMD_MOTOR_MODE, motor);
-    // LOGWARNING("[dm_motor] Trying to restart motor, can bus [%d] , id [%d]\"", can_bus, motor->motor_can_instance->tx_id);
+    DMMotorSetMode(DM_CMD_MOTOR_MODE, motor);//低频率触发错误清除保证安全
     LOGWARNING("[dm_motor] Trying to restart motor, id [%d]\"", motor->motor_can_instance->tx_id);
 
 }
@@ -168,25 +164,19 @@ void DMMotorLoopType(DMMotorInstance *motor, Closeloop_Type_e type)
 
 
 void DMMotorControl(){
-    DMMotorInstance *motor;
-    Motor_Controller_s *motor_controller;   // 电机控制器
-    DM_Motor_Measure_s *measure;
-    Motor_Control_Setting_s *setting;
-    //CANInstance *motor_can = motor->motor_can_instance;
     DMMotor_Send_s motor_send_mailbox;
 
     float control_ref, control_out, set, pid_measure;
     float angle_pid_out, angle_pid_ref;
     float speed_pid_out, speed_pid_ref;
-    uint8_t parallel_angle_speed;
     static uint16_t reload_cnt = 0; // 新增计数器
 
     for (size_t i = 0; i < idx; ++i)
     {
-        motor = dm_motor_instance[i];
-        setting = &motor->motor_settings;
-        motor_controller = &motor->motor_controller;
-        measure = &motor->measure;
+        DMMotorInstance *motor = dm_motor_instance[i];
+        Motor_Control_Setting_s *setting = &motor->motor_settings;
+        Motor_Controller_s *motor_controller = &motor->motor_controller;
+        DM_Motor_Measure_s *measure = &motor->measure;
         angle_pid_out = 0.0f;
         speed_pid_out = 0.0f;
 

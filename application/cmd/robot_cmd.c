@@ -829,6 +829,16 @@ static void EmergencyHandler() {
             LOGERROR("[CMD] emergency stop!");
         }
     }
+    else {
+        robot_state = ROBOT_STOP;
+        gimbal_cmd_send.gimbal_mode = GIMBAL_ZERO_FORCE;
+        chassis_cmd_send.chassis_mode = CHASSIS_ZERO_FORCE;
+        shoot_cmd_send.shoot_mode = SHOOT_OFF;
+        shoot_cmd_send.friction_mode = FRICTION_OFF;
+        chassis_cmd_send.friction_mode = FRICTION_OFF;
+        shoot_cmd_send.loader_mode = LOAD_STOP;
+        LOGERROR("[CMD] emergency stop!");
+    }
     // 遥控器右侧开关为[上],恢复正常运行
     if (switch_is_up(rc_data[TEMP].rc.switch_right) || referee_VT_data->vt_ctrl[TEMP].vt.trigger == 1) {
         robot_state = ROBOT_READY;
