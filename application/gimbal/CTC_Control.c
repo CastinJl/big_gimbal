@@ -77,7 +77,8 @@ float Torque_ff_Yaw(CTC_Controller *ff)
 float Torque_ff_Pitch(CTC_Controller *ff,float theta)
 {
     // ref_pos/ref_vel/ref_acc 由GimbalTask通过本地轨迹生成 + 视觉覆盖填好
-    ff->torque_ff = PITCH_J * ff->ref_acc + PITCH_B * ff->ref_vel + PITCH_G * arm_cos_f32(theta+1.0106) + PITCH_TC * tanhf(Friction_Smooth * ff->ref_vel);
+    float u_gravity =-0.184264526f + 0.721730567f * arm_cos_f32(theta + 1.17384424f);//由重力矩辨识得到，PITCH_G * arm_cos_f32(theta+1.0106f)   PITCH_KU * u_gravity
+    ff->torque_ff = PITCH_J * ff->ref_acc + PITCH_B * ff->ref_vel + PITCH_KU * u_gravity + PITCH_TC * tanhf(Friction_Smooth * ff->ref_vel);
 
    ESO_pitch(ff);
 
