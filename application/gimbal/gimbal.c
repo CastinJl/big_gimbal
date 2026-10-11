@@ -221,6 +221,10 @@ void GimbalInit() {
         .DM_V_MAX = 30,
         .DM_T_MAX = 10
     };
+    yaw_cmd->eso_initialized = 0;
+    yaw_cmd->eso_bandwidth = 0.0f;
+    yaw_cmd->eso_gain=0.0f;
+    yaw_cmd->eso_limit=0.0f;
     pitch_cmd->eso_initialized=0;
     pitch_cmd->eso_bandwidth = 27.0f;
     pitch_cmd->eso_gain=0.1f;
@@ -299,8 +303,12 @@ void GimbalTask() {
     SubGetMessage(gimbal_sub, &gimbal_cmd_recv);
 
     CTC_Gimbal_Feedback_s ctc_fb = {
-        .Pitch = gimbal_IMU_data->Pitch,
         .YawTotalAngle = gimbal_IMU_data->YawTotalAngle,
+        .yaw_gyro = gimbal_IMU_data->Gyro[2],
+        .yaw_motor_angle =  gimbal_feedback_data.yaw_motor_single_round_angle,
+        .yaw_motor_control_out = yaw_motor->motor_controller.control_out,
+        .yaw_motor_lost_flag = gimbal_feedback_data.yaw_motor_lost_flag,
+        .Pitch = gimbal_IMU_data->Pitch,
         .pitch_gyro = gimbal_IMU_data->Gyro[0],
         .pitch_motor_angle = gimbal_feedback_data.pitch_motor_single_round_angle,
         .pitch_motor_control_out = pitch_motor->motor_controller.control_out,
@@ -344,6 +352,7 @@ void GimbalTask() {
 #if !(SYS_ID_MODE_ON ||PITCH_SYS_ID_MODE_ON ||PITCH_GRAVITY_ID_MODE_ON)
             if (gimbal_cmd_recv.auto_aim_mode == 1) {
                 pitch_cmd->eso_enabled = 1U;
+                yaw_cmd->eso_enabled = 1U;
                 // 视觉自瞄: 用视觉给的 yaw_v/yaw_acc
                 yaw_cmd->ref_pos = gimbal_cmd_recv.yaw;
                 yaw_cmd->ref_vel = gimbal_cmd_recv.vision_yaw_speed_ff;
@@ -356,6 +365,7 @@ void GimbalTask() {
                 DMMotorLoopType(pitch_motor, ANGLE_SPEED_PARALLEL);
             } else {
                 pitch_cmd->eso_enabled = 0U;
+                yaw_cmd->eso_enabled = 0U;
                 const float DEADZONE = 0.01f;
                 static uint8_t last_had_input_flag = 0;
                 uint8_t had_input_flag = (fabsf(gimbal_cmd_recv.yaw_speed) > DEADZONE || fabsf(gimbal_cmd_recv.pitch_speed) > DEADZONE);
@@ -432,6 +442,7 @@ void GimbalTask() {
         gimbal_feedback_data.gimbal_imu_data = *gimbal_IMU_data;
         gimbal_feedback_data.yaw_motor_single_round_angle = yaw_motor->measure.angle_single_round;
         gimbal_feedback_data.yaw_motor_sum_round_angle= yaw_motor->measure.total_angle;
+        gimbal_feedback_data.yaw_motor_lost_flag = yaw_motor->lost_flag;
         gimbal_feedback_data.pitch_motor_single_round_angle= pitch_motor->measure.angle_single_round;
         gimbal_feedback_data.pitch_motor_lost_flag = pitch_motor->lost_flag;
         // 推送消息

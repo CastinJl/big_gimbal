@@ -283,6 +283,7 @@ typedef struct
     float yaw_motor_single_round_angle;
     float yaw_motor_sum_round_angle;
     float pitch_motor_single_round_angle;
+    uint8_t yaw_motor_lost_flag;
     uint8_t pitch_motor_lost_flag;
 } Gimbal_Upload_Data_s;
 

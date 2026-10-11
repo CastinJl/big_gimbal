@@ -43,7 +43,11 @@ typedef struct {
     float Pitch;
     float YawTotalAngle;
     float pitch_gyro;
-
+    float yaw_gyro;
+    //YAW
+    float yaw_motor_angle;
+    float yaw_motor_control_out;
+    uint8_t yaw_motor_lost_flag;
     // Pitch 电机反馈
     float pitch_motor_angle;
     float pitch_motor_control_out;
