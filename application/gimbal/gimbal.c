@@ -222,9 +222,9 @@ void GimbalInit() {
         .DM_T_MAX = 10
     };
     yaw_cmd->eso_initialized = 0;
-    yaw_cmd->eso_bandwidth = 0.0f;
-    yaw_cmd->eso_gain=0.0f;
-    yaw_cmd->eso_limit=0.0f;
+    yaw_cmd->eso_bandwidth = 27.0f;
+    yaw_cmd->eso_gain=0.1f;
+    yaw_cmd->eso_limit=0.8f;
     pitch_cmd->eso_initialized=0;
     pitch_cmd->eso_bandwidth = 27.0f;
     pitch_cmd->eso_gain=0.1f;
