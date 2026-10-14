@@ -354,6 +354,7 @@ static void RemoteControlSet() {
         }
         else if (switch_is_up(rc_data[TEMP].rc.switch_left)) {
             shoot_cmd_send.shoot_mode = SHOOT_ON;
+           // shoot_cmd_send.loader_mode = LOAD_1_BULLET;
             if (aim_suggest_fire == 1) {
                 shoot_cmd_send.loader_mode = LOAD_1_BULLET;
             }

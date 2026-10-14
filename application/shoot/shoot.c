@@ -336,7 +336,7 @@ void ShootTask()
          //   DJIMotorLoopType(loader, ANGLE_LOOP);                              // 切换到角度环
           //  DJIMotorSetRef(loader, loader->measure.total_angle + ONE_BULLET_DELTA_ANGLE * DEGREE_2_RAD * REDUCTION_RATIO_LOADER); // 控制量增加一发弹丸的角度(total_angle已rad)
             DJIMotorLoopType(loader, SPEED_LOOP);
-            DJIMotorSetRef(loader, 60);
+            DJIMotorSetRef(loader, 4*2.0f * PI * REDUCTION_RATIO_LOADER / 9 );
          //   hibernate_time = DWT_GetTimeline_ms();                                              // 记录触发指令的时间
           //  dead_time = 150;// 完成1发弹丸发射的时间
           if (friction_l->measure.speed_rad_per_second  < 670-25) {
@@ -360,7 +360,7 @@ void ShootTask()
         case LOAD_BURSTFIRE:
             single_shot_lock = 0;                  // 切入连发时，为了安全起见也清零锁
             DJIMotorLoopType(loader, SPEED_LOOP);
-            DJIMotorSetRef(loader, shoot_speed * 2.0f * PI * REDUCTION_RATIO_LOADER / 9);
+            DJIMotorSetRef(loader, shoot_speed * 2.0f * PI * REDUCTION_RATIO_LOADER / 9);//射频/9=拨盘频率，*2PI=转速，*系数映射到转子
         // x颗/秒换算成速度: 已知一圈的载弹量,由此计算出1s需要转的角度(DJIMotor的速度单位是rad/s)
         break;
 
