@@ -22,7 +22,46 @@ void CTC_Set_Gimbal_Feedback(const CTC_Gimbal_Feedback_s *feedback) {
         ctc_feedback = *feedback;
     }
 }
+static void ESO_yaw(CTC_Controller *control) {
+    const float dt = 0.001f;
+    const float theta = ctc_feedback.YawTotalAngle;
+    const float omega = ctc_feedback.yaw_gyro;
+    const float tau_input = ctc_feedback.yaw_motor_control_out;
+    const float w0 = control->eso_bandwidth;
 
+    if (control->eso_enabled == 0U ||  w0 <= 0.0f) {
+        control->eso_initialized = 0U;
+        control->eso_z1 = 0.0f;
+        control->eso_z2 = 0.0f;
+        control->eso_z3 = 0.0f;
+        return;
+    }
+
+    if (control->eso_initialized == 0U) {
+        control->eso_z1 = theta;
+        control->eso_z2 = omega;
+        control->eso_z3 = 0.0f;
+        control->eso_initialized = 1U;
+        return;
+    }
+
+    float e = theta - control->eso_z1;
+    float z1_dot = control->eso_z2 + 3.0f * w0 * e;
+    float z2_dot = (tau_input - YAW_B * control->eso_z2) / YAW_J +
+                   control->eso_z3 + 3.0f * w0 * w0 * e;
+    float z3_dot = w0 * w0 * w0 * e;
+
+    control->eso_z1 += dt * z1_dot;
+    control->eso_z2 += dt * z2_dot;
+    control->eso_z3 += dt * z3_dot;
+
+    float tau_eso = -control->eso_gain * YAW_J * control->eso_z3;
+    if (control->eso_limit > 0.0f) {
+        tau_eso = fminf(fmaxf(tau_eso, -control->eso_limit), control->eso_limit);
+    }
+
+    control->torque_ff += tau_eso;
+}
 static void ESO_pitch(CTC_Controller *control) {
     const float dt = 0.001f;
     const float theta = ctc_feedback.Pitch;
@@ -30,7 +69,7 @@ static void ESO_pitch(CTC_Controller *control) {
     const float tau_input = ctc_feedback.pitch_motor_control_out;
     const float w0 = control->eso_bandwidth;
 
-    if (control->eso_enabled == 0U || control == NULL || w0 <= 0.0f) {
+    if (control->eso_enabled == 0U ||  w0 <= 0.0f) {
         control->eso_initialized = 0U;
         control->eso_z1 = 0.0f;
         control->eso_z2 = 0.0f;
@@ -68,7 +107,7 @@ float Torque_ff_Yaw(CTC_Controller *ff)
 {
     // ref_pos/ref_vel/ref_acc 由GimbalTask通过本地轨迹生成 + 视觉覆盖填好
     ff->torque_ff = YAW_J * ff->ref_acc + YAW_B * ff->ref_vel + YAW_TC * tanhf(Friction_Smooth * ff->ref_vel);
-
+    ESO_yaw(ff);
     ff->out_current = ff->torque_ff/YAW_KU;
     return ff->out_current;
 }
@@ -77,7 +116,8 @@ float Torque_ff_Yaw(CTC_Controller *ff)
 float Torque_ff_Pitch(CTC_Controller *ff,float theta)
 {
     // ref_pos/ref_vel/ref_acc 由GimbalTask通过本地轨迹生成 + 视觉覆盖填好
-    ff->torque_ff = PITCH_J * ff->ref_acc + PITCH_B * ff->ref_vel + PITCH_G * arm_cos_f32(theta+1.0106) + PITCH_TC * tanhf(Friction_Smooth * ff->ref_vel);
+    float u_gravity =-0.184264526f + 0.721730567f * arm_cos_f32(theta + 1.17384424f);//由重力矩辨识得到，PITCH_G * arm_cos_f32(theta+1.0106f)   PITCH_KU * u_gravity
+    ff->torque_ff = PITCH_J * ff->ref_acc + PITCH_B * ff->ref_vel + PITCH_KU * u_gravity + PITCH_TC * tanhf(Friction_Smooth * ff->ref_vel);
 
    ESO_pitch(ff);
 

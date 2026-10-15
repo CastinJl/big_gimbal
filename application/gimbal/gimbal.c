@@ -27,6 +27,9 @@ static float last_pid_auto_aim_mode = -1;//为了防止上电不切换pid
 static Motor_Init_Config_s yaw_config;
 static Motor_Init_Config_s pitch_config;
 
+extern CTC_Controller yaw_cmd;
+extern CTC_Controller pitch_cmd;
+
 // --- 系统辨识配置宏 (Pitch 速度参考 chirp 扫频) ---
 #define SYS_ID_MODE_ON  0       // 保持 0: yaw chirp 关闭
 #define SYS_ID_AMP      0.20f   // 速度参考峰值(rad/s)，1Hz时角度峰值约11.5°
@@ -37,9 +40,15 @@ static Motor_Init_Config_s pitch_config;
 // Pitch 速度环系统辨识；打开后仅运行速度环，关闭后恢复正常角度控制
 #define PITCH_SYS_ID_MODE_ON   0
 #define PITCH_SYS_ID_GRAVITY_FF 1  // 1: 保留重力补偿，0: 纯力矩输入（需机械支撑）
-#define PITCH_SYS_ID_LIMIT_RAD   (15.0f * DEGREE_2_RAD)  // 角度保护阈值
+#define PITCH_SYS_ID_LIMIT_RAD   (18.0f * DEGREE_2_RAD)  // 角度保护阈值
+//Pitch 重力矩辨识
+#define PITCH_GRAVITY_ID_MODE_ON 0
+#define PITCH_GRAVITY_ID_SPEED       0.03f
+#define PITCH_GRAVITY_ID_TIMEOUT     60.0f
+#define PITCH_GRAVITY_ID_REVERSE_INVALID_TIME 0.30f
 
-#if SYS_ID_MODE_ON && PITCH_SYS_ID_MODE_ON
+
+#if (SYS_ID_MODE_ON + PITCH_SYS_ID_MODE_ON + PITCH_GRAVITY_ID_MODE_ON) > 1
 #error "Yaw and pitch system identification modes cannot| be enabled together."
 #endif
 
@@ -73,6 +82,25 @@ float Gimbal_SysID_Generate_Chirp(float dt) {
     return output;
 }
 
+
+static void PitchGravityIdControl(float speed)
+{//速度环pid：P：2，I：25
+    static uint8_t initialized = 0;
+    static int8_t direction = 1;
+
+    float pitch_angle = gimbal_IMU_data->Pitch;
+
+    if (!initialized) {
+        direction = (pitch_angle < 0.5f * (PITCH_MIN_ANGLE  + PITCH_MAX_ANGLE)) ? 1 : -1;
+        initialized = 1;
+    }
+    const float band = 2.0f * DEGREE_2_RAD;   // 回差，避免边界抖振
+    if (direction > 0 && pitch_angle >= 0.70f - band) direction = -1;//仰角不需要太高，太高阻力增大的厉害
+    if (direction < 0 && pitch_angle <= PITCH_MIN_ANGLE + band) direction = 1;
+
+    pitch_cmd.ref_vel = direction * speed;
+    pitch_cmd.ref_acc = 0.0f;
+}
 
 void GimbalInit() {
     gimbal_IMU_data = INS_Init(); // IMU先初始化,获取姿态数据指针赋给yaw电机的其他数据来源
@@ -168,23 +196,35 @@ void GimbalInit() {
         .controller_setting_init_config = {
             .angle_feedback_source = OTHER_FEED,
             .speed_feedback_source = OTHER_FEED,
-#if PITCH_SYS_ID_MODE_ON
+#if  PITCH_GRAVITY_ID_MODE_ON
+      // 重力矩辨识：速度闭环，不叠加固定力矩前馈
+                .loop_type = SPEED_LOOP,
+                .feedforward_flag = FEEDFORWARD_NONE,
+
+#elif PITCH_SYS_ID_MODE_ON
 #if PITCH_SYS_ID_GRAVITY_FF
+            .loop_type = CURRENT_LOOP,
             .feedforward_flag = CURRENT_FEEDFORWARD,
 #else
             .feedforward_flag =  FEEDFORWARD_NONE,
 #endif
 #else
-            .feedforward_flag = CURRENT_FEEDFORWARD,
+           // 正常控制
+                .loop_type = ANGLE_SPEED_CASCADE,
+                .feedforward_flag = CURRENT_FEEDFORWARD,
 #endif
+
             .motor_reverse_flag = MOTOR_DIRECTION_NORMAL,
-            .loop_type = ANGLE_SPEED_CASCADE,
         },
         .motor_type = DM4310,
         .DM_P_MAX = 3.14159f,
         .DM_V_MAX = 30,
         .DM_T_MAX = 10
     };
+    yaw_cmd->eso_initialized = 0;
+    yaw_cmd->eso_bandwidth = 27.0f;
+    yaw_cmd->eso_gain=0.1f;
+    yaw_cmd->eso_limit=0.8f;
     pitch_cmd->eso_initialized=0;
     pitch_cmd->eso_bandwidth = 27.0f;
     pitch_cmd->eso_gain=0.1f;
@@ -221,7 +261,7 @@ static Motor_Controller_Init_s pitch_controller_config = {
         .MaxOut = 5,
     },
     .speed_PID = {
-        .Kp = 1.0f,//并行扭矩量纲起始值(原级联50);实车重标定
+        .Kp = 1.6f,//并行扭矩量纲起始值(原级联50);实车重标定
         .Ki = 0.0f,
         .Kd = 0.0f,
         .MaxOut = 10
@@ -263,8 +303,12 @@ void GimbalTask() {
     SubGetMessage(gimbal_sub, &gimbal_cmd_recv);
 
     CTC_Gimbal_Feedback_s ctc_fb = {
-        .Pitch = gimbal_IMU_data->Pitch,
         .YawTotalAngle = gimbal_IMU_data->YawTotalAngle,
+        .yaw_gyro = gimbal_IMU_data->Gyro[2],
+        .yaw_motor_angle =  gimbal_feedback_data.yaw_motor_single_round_angle,
+        .yaw_motor_control_out = yaw_motor->motor_controller.control_out,
+        .yaw_motor_lost_flag = gimbal_feedback_data.yaw_motor_lost_flag,
+        .Pitch = gimbal_IMU_data->Pitch,
         .pitch_gyro = gimbal_IMU_data->Gyro[0],
         .pitch_motor_angle = gimbal_feedback_data.pitch_motor_single_round_angle,
         .pitch_motor_control_out = pitch_motor->motor_controller.control_out,
@@ -305,9 +349,10 @@ void GimbalTask() {
             case GIMBAL_GYRO_MODE: // 后续只保留此模式
             DMMotorEnable(yaw_motor);
             DMMotorEnable(pitch_motor);
-#if !(SYS_ID_MODE_ON ||PITCH_SYS_ID_MODE_ON)
+#if !(SYS_ID_MODE_ON ||PITCH_SYS_ID_MODE_ON ||PITCH_GRAVITY_ID_MODE_ON)
             if (gimbal_cmd_recv.auto_aim_mode == 1) {
                 pitch_cmd->eso_enabled = 1U;
+                yaw_cmd->eso_enabled = 1U;
                 // 视觉自瞄: 用视觉给的 yaw_v/yaw_acc
                 yaw_cmd->ref_pos = gimbal_cmd_recv.yaw;
                 yaw_cmd->ref_vel = gimbal_cmd_recv.vision_yaw_speed_ff;
@@ -320,6 +365,7 @@ void GimbalTask() {
                 DMMotorLoopType(pitch_motor, ANGLE_SPEED_PARALLEL);
             } else {
                 pitch_cmd->eso_enabled = 0U;
+                yaw_cmd->eso_enabled = 0U;
                 const float DEADZONE = 0.01f;
                 static uint8_t last_had_input_flag = 0;
                 uint8_t had_input_flag = (fabsf(gimbal_cmd_recv.yaw_speed) > DEADZONE || fabsf(gimbal_cmd_recv.pitch_speed) > DEADZONE);
@@ -361,6 +407,13 @@ void GimbalTask() {
                                       : Gimbal_SysID_Generate_Chirp(0.001f);
             pitch_cmd->ref_pos = sys_id_target_speed;
             // DMMotorSetRef(pitch_motor, sys_id_target_speed);
+#elif PITCH_GRAVITY_ID_MODE_ON
+            //pitch 重力矩辨识：速度闭环，pitch无前馈
+            DMMotorLoopType(pitch_motor, SPEED_LOOP);
+            yaw_current = 0.0f;
+            yaw_cmd->ref_pos=0;
+            sys_id_target_speed = 0.3f;
+            PitchGravityIdControl(sys_id_target_speed);
 #else
 
             yaw_current = Torque_ff_Yaw(yaw_cmd);
@@ -389,6 +442,7 @@ void GimbalTask() {
         gimbal_feedback_data.gimbal_imu_data = *gimbal_IMU_data;
         gimbal_feedback_data.yaw_motor_single_round_angle = yaw_motor->measure.angle_single_round;
         gimbal_feedback_data.yaw_motor_sum_round_angle= yaw_motor->measure.total_angle;
+        gimbal_feedback_data.yaw_motor_lost_flag = yaw_motor->lost_flag;
         gimbal_feedback_data.pitch_motor_single_round_angle= pitch_motor->measure.angle_single_round;
         gimbal_feedback_data.pitch_motor_lost_flag = pitch_motor->lost_flag;
         // 推送消息
