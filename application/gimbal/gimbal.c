@@ -180,7 +180,7 @@ void GimbalInit() {
             .speed_PID = {
                 .Kp = 4.0f,//并行扭矩量纲起始值(原级联2);阻尼,实车重标定
                 .Ki = 1.0f,
-                .Kd = 0.0f,
+                .Kd = 0.01f,
                 .Improve = PID_Integral_Limit | PID_Derivative_On_Measurement,
                 .IntegralLimit = 5,
                 .MaxOut = 10,
