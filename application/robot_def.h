@@ -30,8 +30,8 @@
 #define MAX_FF_SPEED_RAD 20
 #define PITCH_MAX_ANGLE (41.0f * PI / 180.0f)           // 云台竖直方向最大角度 (IMU, rad)
 #define PITCH_MIN_ANGLE (-14.0f * PI / 180.0f)          // 云台竖直方向最小角度 (IMU, rad)
-#define PITCH_MAX_ECD -1.35f           // 云台竖直方向最大角度 (电机编码器, rad)
-#define PITCH_MIN_ECD -2.27f          // 云台竖直方向最小角度 (电机编码器, rad)
+#define PITCH_MAX_ECD -1.40f           // 云台竖直方向最大角度 (电机编码器, rad)
+#define PITCH_MIN_ECD -2.25f         // 云台竖直方向最小角度 (电机编码器, rad)
 
 // 发射参数
 #define ONE_BULLET_DELTA_ANGLE 40    // 发射一发弹丸拨盘转动的距离,由机械设计图纸给出
