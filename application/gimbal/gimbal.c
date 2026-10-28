@@ -110,9 +110,9 @@ void GimbalInit() {
     // YAW
     yaw_config = (Motor_Init_Config_s){
         .can_init_config = {
-            .can_handle = &hcan1,
-            .tx_id = 0x10, //
-            .rx_id = 0x1b
+            .can_handle = &hcan2,
+            .tx_id = 0x08, //
+            .rx_id = 0x04
         },
         .controller_param_init_config = {
             .angle_PID = {
@@ -156,16 +156,16 @@ void GimbalInit() {
             .motor_reverse_flag = MOTOR_DIRECTION_NORMAL,
         },
         .motor_type = DM4310,
-        .DM_P_MAX = 3.14159,
-        .DM_V_MAX = 30,
-        .DM_T_MAX = 10
+        .DM_P_MAX = 3.14159f,
+        .DM_V_MAX = 45,
+        .DM_T_MAX = 18
     };
     // PITCH
     pitch_config = (Motor_Init_Config_s){
         .can_init_config = {
-            .can_handle = &hcan2,
-            .tx_id = 0x09,  //slave id
-            .rx_id = 0x1a,  //MASTER ID
+            .can_handle = &hcan1,
+            .tx_id = 0x07,  //slave id
+            .rx_id = 0x03,  //MASTER ID
         },
         .controller_param_init_config = {
             .angle_PID = {
@@ -186,9 +186,9 @@ void GimbalInit() {
                 .MaxOut = 10,
                 //.Derivative_LPF_RC = 0.02f
             },
-            .other_angle_feedback_ptr = &gimbal_IMU_data->Pitch,//&gimba_IMU_data->Pitch,
+            .other_angle_feedback_ptr = &gimbal_IMU_data->Roll,//&gimba_IMU_data->Pitch,
             // 还需要增加角速度额外反馈指针,注意方向,ins_task.md中有c板的bodyframe坐标系说明
-            .other_speed_feedback_ptr = &gimbal_IMU_data->Gyro[0],//(&gimba_IMU_data->Gyro[0]),
+            .other_speed_feedback_ptr = &gimbal_IMU_data->Gyro[1],//(&gimba_IMU_data->Gyro[0]),
             .angle_ref_ptr = &pitch_cmd->ref_pos,
             .speed_ref_ptr = &pitch_cmd->ref_vel,
             .current_feedforward_ptr = &pitch_current,
@@ -218,8 +218,8 @@ void GimbalInit() {
         },
         .motor_type = DM4310,
         .DM_P_MAX = 3.14159f,
-        .DM_V_MAX = 30,
-        .DM_T_MAX = 10
+        .DM_V_MAX = 45,
+        .DM_T_MAX = 18
     };
     yaw_cmd->eso_initialized = 0;
     yaw_cmd->eso_bandwidth = 27.0f;

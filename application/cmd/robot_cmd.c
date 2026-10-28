@@ -118,7 +118,7 @@ void RobotCMDInit() {
         .send_data_len = sizeof(Chassis_Ctrl_Cmd_s),
     };
 
-    cmd_can_comm = CANCommInit(&comm_conf);
+    //cmd_can_comm = CANCommInit(&comm_conf);//todo:暂时把双板通信关掉
 
 
 #endif // GIMBAL_BOARD

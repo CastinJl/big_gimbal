@@ -119,7 +119,7 @@ void ShootInit()
     // 左摩擦轮
     Motor_Init_Config_s friction_config = {
         .can_init_config = {
-            .can_handle = &hcan2,
+            .can_handle = &hcan1,
     },
     .controller_param_init_config = {
             .speed_PID = {
@@ -145,7 +145,7 @@ void ShootInit()
             .loop_type = SPEED_LOOP,
     },
     .motor_type = M3508};
-    friction_config.can_init_config.tx_id = 2,
+    friction_config.can_init_config.tx_id = 3,
             friction_config.controller_setting_init_config.motor_reverse_flag = MOTOR_DIRECTION_NORMAL;
     //friction_config.controller_setting_init_config.feedback_reverse_flag = FEEDBACK_DIRECTION_NORMAL;
     friction_l = DJIMotorInit(&friction_config);
@@ -159,7 +159,7 @@ void ShootInit()
     Motor_Init_Config_s loader_config = {
             .can_init_config = {
                     .can_handle = &hcan1,
-                    .tx_id = 1
+                    .tx_id = 5
             },
             .controller_param_init_config = {
                     .angle_PID = {
