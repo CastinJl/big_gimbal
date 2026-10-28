@@ -215,7 +215,7 @@ void GimbalInit() {
 #endif
 
             .motor_reverse_flag = MOTOR_DIRECTION_NORMAL,
-            .feedback_reverse_flag = FEEDBACK_DIRECTION_REVERSE
+            .feedback_reverse_flag = FEEDBACK_DIRECTION_NORMAL,
         },
         .motor_type = DM4310,
         .DM_P_MAX = 3.14159f,
@@ -348,8 +348,7 @@ void GimbalTask() {
             // 使用陀螺仪的反馈,底盘根据yaw电机的offset跟随云台或视觉模式采用
             case GIMBAL_GYRO_MODE: // 后续只保留此模式
             DMMotorEnable(yaw_motor);
-            //DMMotorEnable(pitch_motor);
-            DMMotorStop(pitch_motor);
+            DMMotorEnable(pitch_motor);
 #if !(SYS_ID_MODE_ON ||PITCH_SYS_ID_MODE_ON ||PITCH_GRAVITY_ID_MODE_ON)
             if (gimbal_cmd_recv.auto_aim_mode == 1) {
                 // pitch_cmd->eso_enabled = 1U;

@@ -4,7 +4,7 @@
  * @brief  module for recv&send vision data
  * @version beta
  * @date 2022-11-03
- * @todo 澧炲姞瀵逛覆鍙ｈ皟璇曞姪鎵嬪崗璁殑鏀寔,鍖呮嫭vofa鍜宻erial debug
+ * @todo 增加串口调试助手协议支持，包括 vofa 和 serial debug
  * @copyright Copyright (c) 2022
  *
  */
@@ -30,8 +30,8 @@ void VisionSetFlag(uint8_t enemy_color)
 void VisionSetAltitude(float yaw, float pitch,float roll)
 {
     send_data.yaw = yaw;
-    send_data.pitch = pitch;
-    send_data.roll = roll;
+    send_data.pitch = roll;
+    send_data.roll = pitch;
 }
 
 void VisionSetFireDelay(float fire_delay_ms)
@@ -45,11 +45,11 @@ void VisionSetBulletSpeed(float bullet_speed)
 
 }
 /**
- * @brief 绂荤嚎鍥炶皟鍑芥暟,灏嗗湪daemon.c涓daemon task璋冪敤
- * @attention 鐢变簬HAL搴撶殑璁捐闂,涓插彛寮€鍚疍MA鎺ユ敹涔嬪悗鍚屾椂鍙戦€佹湁姒傜巼鍑虹幇__HAL_LOCK()瀵艰嚧鐨勬閿?浣垮緱鏃犳硶
- *            杩涘叆鎺ユ敹涓柇.閫氳繃daemon鍒ゆ柇鏁版嵁鏇存柊,閲嶆柊璋冪敤鏈嶅姟鍚姩鍑芥暟浠ヨВ鍐虫闂.
+ * @brief 离线回调函数，由 daemon task 在 daemon.c 中调用
+ * @attention 串口开启 DMA 接收后同时发送，可能因 __HAL_LOCK() 导致死锁，无法再次
+ *            进入接收中断。通过 daemon 判断数据是否更新，并重新初始化服务恢复通信。
  *
- * @param id vision_usart_instance鐨勫湴鍧€,姝ゅ娌＄敤.
+ * @param id vision_usart_instance 的地址，此处未使用。
  */
 static void VisionOfflineCallback(void *id)
 {
@@ -70,14 +70,14 @@ static void VisionOfflineCallback(void *id)
 static USARTInstance *vision_usart_instance;
 
 /**
- * @brief 鎺ユ敹瑙ｅ寘鍥炶皟鍑芥暟,灏嗗湪bsp_usart.c涓usart rx callback璋冪敤
- * @todo  1.鎻愰珮鍙鎬?灏唃et_protocol_info鐨勭鍥涗釜鍙傛暟澧炲姞涓€涓猣loat绫诲瀷buffer
- *        2.娣诲姞鏍囧織浣嶈В鐮?
+ * @brief 接收解包回调函数，由 bsp_usart.c 中的串口接收回调调用
+ * @todo 1. 提高可读性，为 get_protocol_info 的第四个参数增加 float 类型的缓冲区
+ *       2. 添加标志位解码
  */
 static void DecodeVision()
 {
     uint16_t flag_register;
-    DaemonReload(vision_daemon_instance); // 鍠傜嫍
+    DaemonReload(vision_daemon_instance); // 喂狗
     get_protocol_info(vision_usart_instance->recv_buff, &flag_register, (uint8_t *)&recv_data.pitch);
     // TODO: code to resolve flag_register;
 }
@@ -90,9 +90,9 @@ Vision_Recv_s *VisionInit(UART_HandleTypeDef *_handle)
     conf.usart_handle = _handle;
     vision_usart_instance = USARTRegister(&conf);
 
-    // 涓簃aster process娉ㄥ唽daemon,鐢ㄤ簬鍒ゆ柇瑙嗚閫氫俊鏄惁绂荤嚎
+    // 为 master process 注册 daemon，用于判断视觉通信是否离线
     Daemon_Init_Config_s daemon_conf = {
-        .callback = VisionOfflineCallback, // 绂荤嚎鏃惰皟鐢ㄧ殑鍥炶皟鍑芥暟,浼氶噸鍚覆鍙ｆ帴鏀?
+        .callback = VisionOfflineCallback, // 离线时调用，重新启动串口接收
         .owner_id = vision_usart_instance,
         .reload_count = 10,
     };
@@ -102,26 +102,25 @@ Vision_Recv_s *VisionInit(UART_HandleTypeDef *_handle)
 }
 
 /**
- * @brief 鍙戦€佸嚱鏁?
+ * @brief 发送函数
  *
- * @param send 寰呭彂閫佹暟鎹?
  *
  */
 void VisionSend()
 {
-    // buff鍜宼xlen蹇呴』涓簊tatic,鎵嶈兘淇濊瘉鍦ㄥ嚱鏁伴€€鍑哄悗涓嶈閲婃斁,浣垮緱DMA姝ｇ‘瀹屾垚鍙戦€?
-    // 鏋愭瀯鍚庣殑闄烽槺闇€瑕佺壒鍒敞鎰?
+    // 缓冲区和长度变量使用 static，避免函数退出后失效，保证 DMA 发送完成
+    // 使用结构体组织数据时，需要特别注意内存布局
     static uint16_t flag_register;
     static uint8_t send_buff[VISION_SEND_SIZE];
     static uint16_t tx_len;
     // TODO: code to set flag_register
     flag_register = 30 << 8 | 0b00000001;
-    // 灏嗘暟鎹浆鍖栦负seasky鍗忚鐨勬暟鎹寘
+    // 将数据转换为 seasky 协议数据包
     get_protocol_send_data(0x02, flag_register, &send_data.yaw, 3, send_buff, &tx_len);
-    USARTSend(vision_usart_instance, send_buff, tx_len, USART_TRANSFER_DMA); // 鍜岃瑙夐€氫俊浣跨敤IT,闃叉鍜屾帴鏀朵娇鐢ㄧ殑DMA鍐茬獊
-    // 姝ゅ涓篐AL璁捐鐨勭己闄?DMASTOP浼氬仠姝㈠彂閫佸拰鎺ユ敹,瀵艰嚧鍐嶄篃鏃犳硶杩涘叆鎺ユ敹涓柇.
-    // 涔熷彲鍦ㄥ彂閫佸畬鎴愪腑鏂腑閲嶆柊鍚姩DMA鎺ユ敹,浣嗚緝涓哄鏉?鍥犳,姝ゅ浣跨敤IT鍙戦€?
-    // 鑻ヤ娇鐢ㄤ簡daemon,鍒欎篃鍙互浣跨敤DMA鍙戦€?
+    USARTSend(vision_usart_instance, send_buff, tx_len, USART_TRANSFER_DMA); // 向视觉端发送串口数据
+    // DMASTOP 会同时停止发送和接收，可能导致无法再次进入接收中断
+    // 可在发送完成中断中重新启动 DMA 接收，或使用中断发送避免干扰 DMA 接收
+    // 也可使用 daemon 在通信离线后恢复 DMA 接收
 }
 
 #endif // VISION_USE_UART
@@ -129,7 +128,7 @@ void VisionSend()
 #ifdef VISION_USE_VCP
 
 #include "bsp_usb.h"
-static uint8_t *vis_recv_buff; //鎺ユ敹鍒扮殑鍘熷鏁版嵁
+static uint8_t *vis_recv_buff; // 接收到的原始数据
 
 static void DecodeVision(uint16_t recv_len)
 {

@@ -106,21 +106,21 @@ _Static_assert(sizeof(SendPacket_t) == 24u, "vision send frame must stay 24 byte
 #pragma pack()
 
 /**
- * @brief 璋冪敤姝ゅ嚱鏁板垵濮嬪寲鍜岃瑙夌殑涓插彛閫氫俊
+ * @brief 初始化与视觉端的通信
  *
- * @param handle 鐢ㄤ簬鍜岃瑙夐€氫俊鐨勪覆鍙andle(C鏉夸笂涓€鑸负USART1,涓濆嵃涓篣SART2,4pin)
+ * @param handle 用于视觉通信的串口句柄（串口版本接口参数）
  */
 //Vision_Recv_s *VisionInit(UART_HandleTypeDef *_handle);
 RecievePacket_t *VisionInit(void);
 
 /**
- * @brief 鍙戦€佽瑙夋暟鎹?
+ * @brief 发送视觉数据
  *
  */
 void VisionSend();
 
 /**
- * @brief 璁剧疆瑙嗚鍙戦€佹爣蹇椾綅
+ * @brief 设置视觉发送标志位
  *
  * @param enemy_color
  * @param work_mode
@@ -130,7 +130,7 @@ void VisionSend();
 void VisionSetFlag(uint8_t enemy_color);
 
 /**
- * @brief 璁剧疆鍙戦€佹暟鎹殑濮挎€侀儴鍒?
+ * @brief 设置发送数据中的姿态部分
  *
  * @param yaw
  * @param pitch
