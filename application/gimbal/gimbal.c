@@ -116,7 +116,7 @@ void GimbalInit() {
         },
         .controller_param_init_config = {
             .angle_PID = {
-                .Kp = 30.0f,//并行扭矩量纲起始值(原级联30);实车重标定
+                .Kp = 3.0f,//并行扭矩量纲起始值(原级联30);实车重标定
                 .Ki = 0.0f,//0
                 .Kd = 0.0f,//0.0f,//0.005f
                 .DeadBand = 0.0f,
@@ -160,7 +160,7 @@ void GimbalInit() {
         .DM_V_MAX = 45,
         .DM_T_MAX = 18
     };
-    // PITCH
+    // PITCH   老英的pitch是反着的   要改一下输出
     pitch_config = (Motor_Init_Config_s){
         .can_init_config = {
             .can_handle = &hcan1,
@@ -351,8 +351,11 @@ void GimbalTask() {
             DMMotorEnable(pitch_motor);
 #if !(SYS_ID_MODE_ON ||PITCH_SYS_ID_MODE_ON ||PITCH_GRAVITY_ID_MODE_ON)
             if (gimbal_cmd_recv.auto_aim_mode == 1) {
-                pitch_cmd->eso_enabled = 1U;
-                yaw_cmd->eso_enabled = 1U;
+                // pitch_cmd->eso_enabled = 1U;
+                // yaw_cmd->eso_enabled = 1U;//todo:因为eso还没有调  先关掉
+                pitch_cmd->eso_enabled = 0U;
+                yaw_cmd->eso_enabled = 0U;
+
                 // 视觉自瞄: 用视觉给的 yaw_v/yaw_acc
                 yaw_cmd->ref_pos = gimbal_cmd_recv.yaw;
                 yaw_cmd->ref_vel = gimbal_cmd_recv.vision_yaw_speed_ff;

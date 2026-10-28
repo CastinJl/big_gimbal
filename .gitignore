@@ -1,44 +1,78 @@
+# Default ignored files
+/shelf/
+/workspace.xml
+# Editor-based HTTP Client requests
+/httpRequests/
+# Datasource local storage ignored files
+/dataSources/
+/dataSources.local.xml
 
-.idea/
+# Prerequisites
+*.d
 
-cmake-build-*/
-
-*.iws
-out/
-
-
-*.slo
-*.lo
+# Object files
 *.o
+*.ko
 *.obj
+*.elf
 
+# Linker output
+*.ilk
+*.map
+*.exp
 
+# Precompiled Headers
 *.gch
 *.pch
 
-*.exe
-*.dll
-*.lib
-*.com
-*.msi
-*.pdb
-*.ilk
+# Libraries
+*.la
+*.lo
 
-# Linux / MacOS
+# Shared objects (inc. Windows DLLs)
+*.dll
 *.so
+*.so.*
 *.dylib
+
+# Executables
+*.exe
 *.out
 *.app
+*.i*86
+*.x86_64
 
+# Debug files
+*.dSYM/
+*.su
+*.idb
+*.pdb
 
-CMakeCache.txt
+# Kernel Module Compile Results
+*.mod*
+*.cmd
+.tmp_versions/
+modules.order
+Module.symvers
+Mkfile.old
+dkms.conf
+build
+
+# IDE 配置文件（全部忽略）
+.idea/
+.vscode/
+*.jdebug*
+settings.json
+
+# ==========================================
+# CLion 与 CMake 编译生成目录（必须加！）
+# ==========================================
+.idea/
+cmake-build-*/
 CMakeFiles/
-cmake_install.cmake
-Makefile
+CMakeCache.txt
 *.cmake
-!CMakeLists.txt
 
-
-.DS_Store
-Thumbs.db
-
+# 嵌入式烧录文件
+*.hex
+*.bin
