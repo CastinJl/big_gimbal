@@ -88,8 +88,8 @@ static void PitchGravityIdControl(float speed)
     static uint8_t initialized = 0;
     static int8_t direction = 1;
 
-    float pitch_angle = gimbal_IMU_data->Pitch;
-
+    //float pitch_angle = gimbal_IMU_data->Pitch;todo:陀螺仪位置
+    float pitch_angle = gimbal_IMU_data->Roll;
     if (!initialized) {
         direction = (pitch_angle < 0.5f * (PITCH_MIN_ANGLE  + PITCH_MAX_ANGLE)) ? 1 : -1;
         initialized = 1;
@@ -188,7 +188,7 @@ void GimbalInit() {
             },
             .other_angle_feedback_ptr = &gimbal_IMU_data->Roll,//&gimba_IMU_data->Pitch,
             // 还需要增加角速度额外反馈指针,注意方向,ins_task.md中有c板的bodyframe坐标系说明
-            .other_speed_feedback_ptr = &gimbal_IMU_data->Gyro[1],//(&gimba_IMU_data->Gyro[0]),
+            .other_speed_feedback_ptr = &gimbal_IMU_data->Gyro[1],//(&gimba_IMU_data->Gyro[0]),todo:云台陀螺仪不是正着放的  拷打机械
             .angle_ref_ptr = &pitch_cmd->ref_pos,
             .speed_ref_ptr = &pitch_cmd->ref_vel,
             .current_feedforward_ptr = &pitch_current,
@@ -215,6 +215,7 @@ void GimbalInit() {
 #endif
 
             .motor_reverse_flag = MOTOR_DIRECTION_NORMAL,
+            .feedback_reverse_flag = FEEDBACK_DIRECTION_REVERSE
         },
         .motor_type = DM4310,
         .DM_P_MAX = 3.14159f,
@@ -308,8 +309,8 @@ void GimbalTask() {
         .yaw_motor_angle =  gimbal_feedback_data.yaw_motor_single_round_angle,
         .yaw_motor_control_out = yaw_motor->motor_controller.control_out,
         .yaw_motor_lost_flag = gimbal_feedback_data.yaw_motor_lost_flag,
-        .Pitch = gimbal_IMU_data->Pitch,
-        .pitch_gyro = gimbal_IMU_data->Gyro[0],
+        .Pitch = gimbal_IMU_data->Roll,//gimbal_IMU_data->Pitch,//todo:陀螺仪位置有变
+        .pitch_gyro = gimbal_IMU_data->Gyro[1],//gimbal_IMU_data->Gyro[0],
         .pitch_motor_angle = gimbal_feedback_data.pitch_motor_single_round_angle,
         .pitch_motor_control_out = pitch_motor->motor_controller.control_out,
         .pitch_motor_lost_flag = gimbal_feedback_data.pitch_motor_lost_flag
@@ -327,7 +328,6 @@ void GimbalTask() {
     // @todo:现在已不再需要电机反馈,实际上可以始终使用IMU的姿态数据来作为云台的反馈,yaw电机的offset只是用来跟随底盘
     // 根据控制模式进行电机反馈切换和过渡,视觉模式在robot_cmd模块就已经设置好,gimbal只看yaw_ref和pitch_ref
     switch (gimbal_cmd_recv.gimbal_mode) {
-        {
             case GIMBAL_ZERO_FORCE:
             DMMotorStop(yaw_motor);
             DMMotorStop(pitch_motor);
@@ -348,7 +348,8 @@ void GimbalTask() {
             // 使用陀螺仪的反馈,底盘根据yaw电机的offset跟随云台或视觉模式采用
             case GIMBAL_GYRO_MODE: // 后续只保留此模式
             DMMotorEnable(yaw_motor);
-            DMMotorEnable(pitch_motor);
+            //DMMotorEnable(pitch_motor);
+            DMMotorStop(pitch_motor);
 #if !(SYS_ID_MODE_ON ||PITCH_SYS_ID_MODE_ON ||PITCH_GRAVITY_ID_MODE_ON)
             if (gimbal_cmd_recv.auto_aim_mode == 1) {
                 // pitch_cmd->eso_enabled = 1U;
@@ -405,7 +406,8 @@ void GimbalTask() {
             yaw_current = 0.0f;
             yaw_cmd->ref_pos=0;
             // 开环保护: 角度越限 → 力矩 0
-            sys_id_target_speed = (fabsf(gimbal_IMU_data->Pitch) > PITCH_SYS_ID_LIMIT_RAD)
+            //sys_id_target_speed = (fabsf(gimbal_IMU_data->Pitch) > PITCH_SYS_ID_LIMIT_RAD)
+            sys_id_target_speed = (fabsf(gimbal_IMU_data->Roll) > PITCH_SYS_ID_LIMIT_RAD)
                                       ? 0.0f
                                       : Gimbal_SysID_Generate_Chirp(0.001f);
             pitch_cmd->ref_pos = sys_id_target_speed;
@@ -420,7 +422,8 @@ void GimbalTask() {
 #else
 
             yaw_current = Torque_ff_Yaw(yaw_cmd);
-            pitch_current = Torque_ff_Pitch(pitch_cmd, gimbal_IMU_data->Pitch);
+            pitch_current = Torque_ff_Pitch(pitch_cmd, gimbal_IMU_data->Roll);
+            //pitch_current = Torque_ff_Pitch(pitch_cmd, gimbal_IMU_data->Pitch);//todo:陀螺仪位置有变
 #endif
 
             float yaw_angle_err = yaw_motor->motor_controller.angle_PID.Err;
@@ -438,8 +441,7 @@ void GimbalTask() {
                 pitch_motor->motor_controller.speed_PID.Iout = 0.0f;
             }
             break;
-        }
-    }
+         }
 
         // 设置反馈数据,主要是imu和yaw的ecd
         gimbal_feedback_data.gimbal_imu_data = *gimbal_IMU_data;

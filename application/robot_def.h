@@ -28,10 +28,10 @@
 #define YAW_CHASSIS_ALIGN_RAD 1.535f// 云台和底盘对齐指向相同方向时的电机position值,若对云台有机械改动需要修改
 #define YAW_ECD_GREATER_THAN_4096 0 // ALIGN_ECD值是否大于4096,是为1,否为0;用于计算云台偏转角度
 #define MAX_FF_SPEED_RAD 20
-#define PITCH_MAX_ANGLE (41.0f * PI / 180.0f)           // 云台竖直方向最大角度 (IMU, rad)
-#define PITCH_MIN_ANGLE (-14.0f * PI / 180.0f)          // 云台竖直方向最小角度 (IMU, rad)
-#define PITCH_MAX_ECD -1.40f           // 云台竖直方向最大角度 (电机编码器, rad)
-#define PITCH_MIN_ECD -2.25f         // 云台竖直方向最小角度 (电机编码器, rad)
+#define PITCH_MAX_ANGLE 0.6358           // 云台竖直方向最大角度 (IMU, rad)
+#define PITCH_MIN_ANGLE (-0.128)       // 云台竖直方向最小角度 (IMU, rad)
+#define PITCH_MAX_ECD 2.05f           // 云台竖直方向最大角度 (电机编码器, rad)   todo：更新这个
+#define PITCH_MIN_ECD 1.03f         // 云台竖直方向最小角度 (电机编码器, rad)
 
 // 发射参数
 #define ONE_BULLET_DELTA_ANGLE 40    // 发射一发弹丸拨盘转动的距离,由机械设计图纸给出

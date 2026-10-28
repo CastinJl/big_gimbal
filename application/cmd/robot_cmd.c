@@ -118,7 +118,7 @@ void RobotCMDInit() {
         .send_data_len = sizeof(Chassis_Ctrl_Cmd_s),
     };
 
-    //cmd_can_comm = CANCommInit(&comm_conf);//todo:暂时把双板通信关掉
+    cmd_can_comm = CANCommInit(&comm_conf);//todo:暂时把双板通信关掉
 
 
 #endif // GIMBAL_BOARD
@@ -136,10 +136,11 @@ void RobotCMDInit() {
  *       2. 由于刚启动时云台未上电，读到的Pitch电机编码值为0，故应在所有的函数调用前加入lost_flag判断，防止引发异常
  *       3. 此逻辑易与其他算法产生冲突，谨慎使用
  */
-static void Pitch_Dynamic_Limit_Update() {
+static void Pitch_Dynamic_Limit_Update() {//todo:检查这个更新逻辑是否适配当前英雄的云台   也就是说换成roll之后编码器的值变化能不能对应上陀螺仪的值变换
     float current_ecd = gimbal_fetch_data.pitch_motor_single_round_angle; // DM position 本就 rad
 
-    float current_imu = gimbal_fetch_data.gimbal_imu_data.Pitch;
+    //float current_imu = gimbal_fetch_data.gimbal_imu_data.Pitch;//todo:陀螺仪位置
+    float current_imu = gimbal_fetch_data.gimbal_imu_data.Roll;//todo:陀螺仪位置
 
     float delta_angle = gimbal_cmd_send.pitch - current_imu;
 
