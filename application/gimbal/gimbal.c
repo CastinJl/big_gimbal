@@ -27,9 +27,6 @@ static float last_pid_auto_aim_mode = -1;//为了防止上电不切换pid
 static Motor_Init_Config_s yaw_config;
 static Motor_Init_Config_s pitch_config;
 
-extern CTC_Controller yaw_cmd;
-extern CTC_Controller pitch_cmd;
-
 // --- 系统辨识配置宏 (Pitch 速度参考 chirp 扫频) ---
 #define SYS_ID_MODE_ON  0       // 保持 0: yaw chirp 关闭
 #define SYS_ID_AMP      0.20f   // 速度参考峰值(rad/s)，1Hz时角度峰值约11.5°
@@ -83,7 +80,7 @@ float Gimbal_SysID_Generate_Chirp(float dt) {
 }
 
 
-static void PitchGravityIdControl(float speed)
+static void PitchGravityIdControl(float speed,)
 {//速度环pid：P：2，I：25
     static uint8_t initialized = 0;
     static int8_t direction = 1;
@@ -215,7 +212,6 @@ void GimbalInit() {
 #endif
 
             .motor_reverse_flag = MOTOR_DIRECTION_NORMAL,
-            .feedback_reverse_flag = FEEDBACK_DIRECTION_NORMAL,
         },
         .motor_type = DM4310,
         .DM_P_MAX = 3.14159f,
