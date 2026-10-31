@@ -55,13 +55,15 @@ typedef struct {
 } CTC_Gimbal_Feedback_s;
 
 void CTC_Set_Gimbal_Feedback(const CTC_Gimbal_Feedback_s *feedback);
-CTC_Controller* CTC_Get_Yaw_Cmd(void);
-CTC_Controller* CTC_Get_Pitch_Cmd(void);
+CTC_Controller* CTC_Get_Yaw_Controller(void);
+CTC_Controller* CTC_Get_Pitch_Controller(void);
 
 float Torque_ff_Yaw(CTC_Controller *ff);
 float Torque_ff_Pitch(CTC_Controller *ff,float theta);
 
-uint8_t CTC_Pitch_Control(uint8_t is_speed_mode, float speed_cmd, uint8_t need_update);
-uint8_t CTC_Yaw_Control(uint8_t is_speed_mode, float speed_cmd, uint8_t need_update);
+uint8_t CTC_Pitch_Control(CTC_Controller *controller, uint8_t is_speed_mode,
+                          float speed_cmd, uint8_t need_update);
+uint8_t CTC_Yaw_Control(CTC_Controller *controller, uint8_t is_speed_mode,
+                        float speed_cmd, uint8_t need_update);
 
 #endif //STEER_GIMBAL_CTC_CONTROL_H

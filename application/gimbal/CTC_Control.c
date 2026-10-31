@@ -6,15 +6,15 @@
 
 
 static CTC_Gimbal_Feedback_s ctc_feedback;
-CTC_Controller yaw_cmd;
-CTC_Controller pitch_cmd;
+static CTC_Controller yaw_controller;
+static CTC_Controller pitch_controller;
 
-CTC_Controller* CTC_Get_Yaw_Cmd(void) {
-    return &yaw_cmd;
+CTC_Controller* CTC_Get_Yaw_Controller(void) {
+	return &yaw_controller;
 }
 
-CTC_Controller* CTC_Get_Pitch_Cmd(void) {
-    return &pitch_cmd;
+CTC_Controller* CTC_Get_Pitch_Controller(void) {
+	return &pitch_controller;
 }
 
 void CTC_Set_Gimbal_Feedback(const CTC_Gimbal_Feedback_s *feedback) {
@@ -147,38 +147,40 @@ uint8_t CTC_Pitch_Limit(float speed_cmd, float *safe_angle) {
 }
 
 
-uint8_t CTC_Pitch_Control(uint8_t is_speed_mode, float speed_cmd, uint8_t need_update) {
+uint8_t CTC_Pitch_Control(CTC_Controller *controller, uint8_t is_speed_mode,
+                          float speed_cmd, uint8_t need_update) {
     float safe_angle;
     uint8_t limit_hit = CTC_Pitch_Limit(speed_cmd, &safe_angle);
 
     // 触发限位
     if (limit_hit) {
-        pitch_cmd.ref_pos = safe_angle;
-        pitch_cmd.ref_vel = 0.0f;
-        pitch_cmd.ref_acc = 0.0f;
+        controller->ref_pos = safe_angle;
+        controller->ref_vel = 0.0f;
+        controller->ref_acc = 0.0f;
         return ANGLE_SPEED_CASCADE;
     }
     if (is_speed_mode) {
-        pitch_cmd.ref_vel = speed_cmd;
-        pitch_cmd.ref_acc = 0.0f;
+        controller->ref_vel = speed_cmd;
+        controller->ref_acc = 0.0f;
         return SPEED_LOOP;
     }
 
-    if (need_update) pitch_cmd.ref_pos = ctc_feedback.Pitch;
-    pitch_cmd.ref_vel = 0.0f;
-    pitch_cmd.ref_acc = 0.0f;
+    if (need_update) controller->ref_pos = ctc_feedback.Pitch;
+    controller->ref_vel = 0.0f;
+    controller->ref_acc = 0.0f;
     return ANGLE_SPEED_CASCADE;
 }
 
 
-uint8_t CTC_Yaw_Control(uint8_t is_speed_mode, float speed_cmd, uint8_t need_update) {
+uint8_t CTC_Yaw_Control(CTC_Controller *controller, uint8_t is_speed_mode,
+                        float speed_cmd, uint8_t need_update) {
     if (is_speed_mode) {
-        yaw_cmd.ref_vel = speed_cmd;
-        yaw_cmd.ref_acc = 0.0f;
+        controller->ref_vel = speed_cmd;
+        controller->ref_acc = 0.0f;
         return SPEED_LOOP;
     }
-    if (need_update) yaw_cmd.ref_pos = ctc_feedback.YawTotalAngle;
-    yaw_cmd.ref_vel = 0.0f;
-    yaw_cmd.ref_acc = 0.0f;
+    if (need_update) controller->ref_pos = ctc_feedback.YawTotalAngle;
+    controller->ref_vel = 0.0f;
+    controller->ref_acc = 0.0f;
     return ANGLE_SPEED_CASCADE;
 }
