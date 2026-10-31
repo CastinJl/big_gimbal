@@ -11,11 +11,11 @@
 #define YAW_B  0.044349312f  // N*m*s/rad
 #define YAW_TC 0.14761474f  // N*m
 #define YAW_KU 0.78064207f   // N*m/unit
-#define PITCH_J 0.003f
-#define PITCH_B 0.019479f
-#define PITCH_G 0.07003f
-#define PITCH_KU 0.21299f
-#define PITCH_TC 0.0876f
+#define PITCH_J 0.0419149843f
+#define PITCH_B 1.1404742f
+#define PITCH_G 0.381666087f
+#define PITCH_KU 0.202159755f
+#define PITCH_TC 0.000368192817f
 #define PITCH_PHI (-0.2f)
 #define FF_GAIN 1.0f  // 前馈增益，建议 0.85~0.95
 

@@ -18,7 +18,7 @@ static Publisher_t *gimbal_pub;                   // 云台应用消息发布者
 static Subscriber_t *gimbal_sub;                  // cmd控制消息订阅者
 Gimbal_Upload_Data_s gimbal_feedback_data; // 回传给cmd的云台状态信息
 static Gimbal_Ctrl_Cmd_s gimbal_cmd_recv;         // 来自cmd的控制信息
-static float pitch_current = 0;
+static float pitch_current = 0.2f;
 static float yaw_current = 0;
 
 static float last_auto_aim_mode;
@@ -29,18 +29,20 @@ static Motor_Init_Config_s pitch_config;
 static CTC_Controller *yaw_controller;
 static CTC_Controller *pitch_controller;
 
+
+//todo:以下三个宏定义的注释不太对  第一个是yaw扫频，第二个是pitch扫频，第三个是pitch重力矩辨识
 // --- 系统辨识配置宏 (Pitch 速度参考 chirp 扫频) ---
 #define SYS_ID_MODE_ON  0       // 保持 0: yaw chirp 关闭
-#define SYS_ID_AMP      0.20f   // 速度参考峰值(rad/s)，1Hz时角度峰值约11.5°
-#define SYS_ID_MIN_FREQ 0.1f    // 起始频率(Hz)  yaw0.2
-#define SYS_ID_MAX_FREQ 18.0f   // 终止频率(Hz)   yaw15
+#define SYS_ID_AMP      0.06f   // 速度参考峰值(rad/s)，1Hz时角度峰值约11.5°   如果是老英yaw  可以换成1.8
+#define SYS_ID_MIN_FREQ 0.01f    // 起始频率(Hz)  yaw0.2
+#define SYS_ID_MAX_FREQ 20.0f   // 终止频率(Hz)   yaw15
 #define SYS_ID_DURATION 30.0f   // 扫频时长(s)
-#define A 9
+
 
 // Pitch 闭环系统辨识；打开后仅运行串级，关闭后恢复正常角度控制
-#define PITCH_SYS_ID_MODE_ON   1
+#define PITCH_SYS_ID_MODE_ON   0
 #define PITCH_SYS_ID_GRAVITY_FF 1  // 1: 保留重力补偿，0: 纯力矩输入（需机械支撑）
-#define PITCH_SYS_ID_LIMIT_RAD   (18.0f * DEGREE_2_RAD)  // 角度保护阈值
+#define PITCH_SYS_ID_LIMIT_RAD   (7.0f * DEGREE_2_RAD)  // 角度保护阈值
 //Pitch 重力矩辨识
 #define PITCH_GRAVITY_ID_MODE_ON 0
 #define PITCH_GRAVITY_ID_SPEED       0.03f
@@ -160,7 +162,7 @@ void GimbalInit() {
         .DM_V_MAX = 45,
         .DM_T_MAX = 18
     };
-    // PITCH   老英的pitch是反着的   要改一下输出
+    // PITCH
     pitch_config = (Motor_Init_Config_s){
         .can_init_config = {
             .can_handle = &hcan1,
@@ -169,7 +171,7 @@ void GimbalInit() {
         },
         .controller_param_init_config = {
             .angle_PID = {
-                .Kp = 27.0f,//并行扭矩量纲起始值(原级联50);实车重标定
+                .Kp = 1.0f,//并行扭矩量纲起始值(原级联50);实车重标定
                 .Ki = 0.0f,
                 .Kd = 0.0f,
                 .Improve = PID_Trapezoid_Intergral | PID_Integral_Limit | PID_Derivative_On_Measurement,
@@ -178,9 +180,9 @@ void GimbalInit() {
 
             },
             .speed_PID = {
-                .Kp = 3.7f,//并行扭矩量纲起始值(原级联2);阻尼,实车重标定
-                .Ki = 1.0f,
-                .Kd = 0.01f,
+                .Kp = 1.0f,//并行扭矩量纲起始值(原级联2);阻尼,实车重标定
+                .Ki = 0.0f,
+                .Kd = 0.0f,
                 .Improve = PID_Integral_Limit | PID_Derivative_On_Measurement,
                 .IntegralLimit = 5,
                 .MaxOut = 10,
@@ -196,25 +198,17 @@ void GimbalInit() {
         .controller_setting_init_config = {
             .angle_feedback_source = OTHER_FEED,
             .speed_feedback_source = OTHER_FEED,
-#if  PITCH_GRAVITY_ID_MODE_ON
-      // 重力矩辨识：速度闭环，不叠加固定力矩前馈
-                .loop_type = SPEED_LOOP,
-                .feedforward_flag = FEEDFORWARD_NONE,
-
-#elif PITCH_SYS_ID_MODE_ON
+#if PITCH_SYS_ID_MODE_ON
 #if PITCH_SYS_ID_GRAVITY_FF
-            .loop_type = CURRENT_LOOP,
             .feedforward_flag = CURRENT_FEEDFORWARD,
 #else
             .feedforward_flag =  FEEDFORWARD_NONE,
 #endif
 #else
-           // 正常控制
-                .loop_type = ANGLE_SPEED_CASCADE,
-                .feedforward_flag = CURRENT_FEEDFORWARD,
+            .feedforward_flag = CURRENT_FEEDFORWARD,
 #endif
-
             .motor_reverse_flag = MOTOR_DIRECTION_NORMAL,
+            .loop_type = ANGLE_SPEED_CASCADE,
         },
         .motor_type = DM4310,
         .DM_P_MAX = 3.14159f,
@@ -394,7 +388,7 @@ void GimbalTask() {
 #if SYS_ID_MODE_ON
             // 辨识输入必须是纯 chirp，不能叠加正常闭环和模型前馈。
             yaw_current = 0.0f;
-            sys_id_target_speed = A*Gimbal_SysID_Generate_Chirp(0.001f);
+            sys_id_target_speed = Gimbal_SysID_Generate_Chirp(0.001f);
             DMMotorSetRef(yaw_motor, sys_id_target_speed);
             DMMotorSetRef(pitch_motor, 0.0f);
 #elif PITCH_SYS_ID_MODE_ON
