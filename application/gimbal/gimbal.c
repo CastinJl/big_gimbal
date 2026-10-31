@@ -30,8 +30,8 @@ static CTC_Controller *yaw_controller;
 static CTC_Controller *pitch_controller;
 
 
-//todo:以下三个宏定义的注释不太对  第一个是yaw扫频，第二个是pitch扫频，第三个是pitch重力矩辨识
-// --- 系统辨识配置宏 (Pitch 速度参考 chirp 扫频) ---
+//todo:以下三个宏定义的注释不太对  第一个是yaw扫频，同时有可调节所有扫频的频率参数，第二个是pitch扫频，是串级pid   第三个是pitch重力矩辨识
+// --- 系统辨识配置宏  ---
 #define SYS_ID_MODE_ON  0       // 保持 0: yaw chirp 关闭
 #define SYS_ID_AMP      0.06f   // 速度参考峰值(rad/s)，1Hz时角度峰值约11.5°   如果是老英yaw  可以换成1.8
 #define SYS_ID_MIN_FREQ 0.01f    // 起始频率(Hz)  yaw0.2
